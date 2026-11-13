@@ -94,6 +94,12 @@ fetching its source from arXiv is most of the time.
 [exp-tables](https://github.com/zch6a/exp-tables) makes result tables from experiment logs ·
 [repro-score](https://github.com/zch6a/repro-score) scores a paper's code for reproducibility.
 
+## Part of research-kit
+
+One of thirteen open research tools, from reading papers to after publication. All of them, in the order of
+the work, with one Claude Code plugin marketplace for their skills: [research-kit](https://github.com/zch6a/research-kit)
+· [site](https://zch6a.github.io/research-kit/).
+
 ## License
 
 MIT. Parts come from [paper-proof](https://github.com/zch6a/paper-proof) (the same author's, MIT). Papers' sources are

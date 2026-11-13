@@ -62,6 +62,10 @@ uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.
 
 [arxiv-diff](https://github.com/zch6a/arxiv-diff) 比较论文各版本的变化（包括表格）· [exp-tables](https://github.com/zch6a/exp-tables) 从实验日志生成结果表 · [repro-score](https://github.com/zch6a/repro-score) 给论文代码的可复现性打分。
 
+## 属于 research-kit
+
+这是 13 个开源科研工具之一，覆盖从读论文到论文发表之后。全部工具按科研流程的介绍，以及安装它们技能的 Claude Code 插件市场，见 [research-kit](https://github.com/zch6a/research-kit) · [网站](https://zch6a.github.io/research-kit/)。
+
 ## 许可证
 
 MIT。部分代码来自同一作者的 [paper-proof](https://github.com/zch6a/paper-proof)（MIT）。论文源码只在原处读取，不保存。
