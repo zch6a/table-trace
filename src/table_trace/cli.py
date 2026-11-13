@@ -179,6 +179,7 @@ def _compare(args: argparse.Namespace) -> int:
         sp = f" ± {f.spread:g}" if f.spread is not None else ""
         bold = " (bold)" if f.bold else ""
         bold += " (lower is better)" if f.better == "lower" else ""
+        bold += " (models as columns)" if f.transposed else ""
         print(f"{f.value:>10g}{sp}{bold}  {f.paper} {f.table}: {f.row} | {f.column}   [{f.file}:{f.line}]  {f.caption[:60]}")
     lo_hi = spread_of(found)
     if lo_hi:

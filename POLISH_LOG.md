@@ -115,3 +115,29 @@ Tests: 23 (doctests included), made-up LaTeX, no network. ruff, ruff format, myp
 Next: polishing round 3 (speed on long sources; the README read again; the agent skill tried).
 
 The round's commit (9f90722) went out with three lint errors (ruff: a lambda not binding its loop variable, a percent-formatted string in a test), so CI failed; fixed in 13bbaa7 (a typed helper for the macro arguments). The gates now run before any commit in one step that stops on a failure.
+
+### 2026-11-14 — polishing round 3
+
+**Speed.** Real long sources read in a fraction of a second — GPT-3 (95 files, 75 tables) 0.13 s, Llama 2 (53 tables)
+0.17 s, Stable Diffusion (71 tables) 0.24 s — while fetching their sources takes 5 to 17 s. Made-up stress cases found
+three steps that grew with the square of the input: a float was checked against every float before it, a tabular looked
+through every float and every tabular start, and every cell's line was counted from the top of its file. Now floats and
+tabulars are found by binary search (they come in order and do not overlap) and lines from an index of the line breaks:
+10,000 floats 2.89 s → 0.04 s; 2,000 small tables 1.28 s → 0.34 s; a table of 5,000 rows 1.65 s → 0.53 s. A
+200,000-character cell, 3,000 macros, and unclosed braces in every row all stay under 0.1 s.
+
+**The agent skill, followed as written**: its three commands run, and the JSON carries what it tells an agent to quote
+(table, row, column, value, bold, `better`, file and line). Doing so showed a gap: ViT's Table 2 has the models as
+columns and the datasets as rows, so `compare --row ViT-L/16 --col ImageNet` found nothing there. `compare` now also
+reads a table the other way round (a column named like the model, a row named like the benchmark), reports it as model
+and metric all the same, and marks it (`transposed`, “models as columns”): ViT-L/16 on ImageNet, 87.76 ± 0.03 (JFT) and
+85.3 ± 0.02 (ImageNet-21k). The skill now says so, and when to use `--caption`.
+
+**The README read again**: it now says how long reading takes, that tables with the models as columns are read the
+other way round, and what round 2 added (a tabular nested in a cell, `\captionof{table}`, numbering across `\input`,
+folders of table snippets); the CHANGELOG too.
+
+Tests: 24 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
+
+Next: polishing round 4 (engineering: a clean install from the wheel, the workflows, a dependency check, a fuzz of the
+readers).

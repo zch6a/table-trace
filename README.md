@@ -44,9 +44,11 @@ and keeps the cell.
 
 - **Tables**: `tabular`, `tabular*`, `tabularx`, `tabulary`, `longtable`, `array`, `tblr`; `\multicolumn` (a spanning
   header joined to the columns under it: "ImageNet Top-1"), `\multirow` (a row name filled down the rows it spans);
-  booktabs rules, `\hline`, makecell's `\Xhline`, `\noalign`, and rules drawn by the paper's own macros.
+  booktabs rules, `\hline`, makecell's `\Xhline`, `\noalign`, and rules drawn by the paper's own macros; a tabular
+  nested in a cell stays that cell's text.
 - **Numbering**: Table 1, 2, … as the paper numbers them: each table caption counts, two tables side by side in one
-  float are two tables, a subtable's caption is not a new one; with each table's `\label` and caption.
+  float are two tables, a subtable's caption is not a new one, a `\captionof{table}` counts, and a table in an
+  `\input` file is numbered where the file is included; with each table's `\label` and caption.
 - **Cells**: the text as printed (the paper's `\newcommand` and `\def` macros expanded, `\textbf{}` and other formatting
   dropped, `\pm` `\dagger` `\uparrow` as ± † ↑, citations left out); the result (the first number, when the cell is a
   result: `125M` and `50 epochs` are not), its ± spread, %, bold (the authors' best) and underline (often second
@@ -54,8 +56,8 @@ and keeps the cell.
 - **Which way is better**: from an arrow in the header or the metric's name (accuracy, BLEU, top-1 are higher; error,
   FID, latency lower), so `compare` warns when an error rate and an accuracy are side by side.
 - **The source**: an arXiv id or link (the source fetched into a temporary folder, read, and deleted; three seconds
-  between papers), a LaTeX project folder, or a .tex file; `\input` and `\include` followed, comments and `\iffalse`
-  left out.
+  between papers), a LaTeX project folder (or a folder of table snippets without a main file), or a .tex file;
+  `\input` and `\include` followed, comments and `\iffalse` left out.
 
 Tried on 25 well-known papers (ResNet, ViT, BERT, T5, LoRA, DeiT, ConvNeXt, Swin, EfficientNet, CLIP, LLaMA, the
 Transformer, GPT-3, Llama 2, Mistral, DPO, DDPM, Stable Diffusion, MAE, SimCLR, RoBERTa, FlashAttention, GAN, YOLO, and
@@ -72,10 +74,12 @@ uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.119
 ```
 
 `compare` takes `--row` and `--col` several times (other spellings: `--row ResNet-50 --row R50`) and `--caption` to keep
-only tables whose caption names something. Names match by their words and numbers in order, whatever the spacing,
+only tables whose caption names something. A table with the models as its columns and the benchmarks as its rows (ViT's
+Table 2) is read the other way round, and its results are marked so. Names match by their words and numbers in order, whatever the spacing,
 hyphens or case: "ResNet-50" finds "ResNet50" and "ResNet 50", not other models such as "ResNet-101",
 "ResNet-50x2", "SE-ResNet-50" or "R50x1+ViT-B/16".
-No dependencies; Python 3.10+.
+No dependencies; Python 3.10+. Reading a paper takes a fraction of a second (GPT-3's 95 files and 75 tables: 0.13 s);
+fetching its source from arXiv is most of the time.
 
 ## Limits
 

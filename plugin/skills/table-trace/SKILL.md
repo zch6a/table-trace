@@ -20,4 +20,6 @@ uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.119
 - In `compare`, read each result's column and caption before calling two numbers the same measurement: top-1 and
   top-5, an error rate and an accuracy, another resolution or pre-training are different. Give the alternative
   spellings of a model with several `--row` (`--row ResNet-50 --row R50`).
+  `--caption ImageNet` keeps only tables whose caption names the benchmark when the columns name only the metric
+  ("top-1 err."). A table with the models as columns is read the other way round (`transposed` in the JSON).
 - A paper submitted as a PDF only has no source: say so rather than guess its numbers.

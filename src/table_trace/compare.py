@@ -54,13 +54,15 @@ class Found:
     bold: bool
     file: str
     line: int
-    better: str = ""  # "higher" or "lower", from the column's header
+    better: str = ""  # "higher" or "lower", from the metric's name
+    transposed: bool = False  # the model was a column and the benchmark a row (ViT's Table 2): row and column swapped back
 
 
 def find(paper: Paper, rows: list[re.Pattern[str]], cols: list[re.Pattern[str]], captions: list[re.Pattern[str]] | None = None,
          tables: list[Table] | None = None) -> list[Found]:  # fmt: skip
     """The results in `paper` whose row matches one of `rows` and whose column header matches one of `cols`, in
-    tables whose caption (or label) matches one of `captions` when they are given."""
+    tables whose caption (or label) matches one of `captions` when they are given; and the other way round, in tables
+    with the models as columns and the benchmarks as rows (reported as model and metric all the same)."""
     out = []
     for t in tables if tables is not None else find_tables(paper.files, paper.includes):
         if captions and not any(p.search(f"{t.caption} {t.label}".lower()) for p in captions):
@@ -68,6 +70,7 @@ def find(paper: Paper, rows: list[re.Pattern[str]], cols: list[re.Pattern[str]],
         keys = t.columns()
         col_hit = [any(p.search(k.lower()) for p in cols) for k in keys]
         if not any(col_hit):
+            out += _transposed(paper, t, keys, rows, cols)
             continue
         for i, rkey in t.body():
             if not any(p.search(rkey.lower()) for p in rows):
@@ -80,6 +83,28 @@ def find(paper: Paper, rows: list[re.Pattern[str]], cols: list[re.Pattern[str]],
                     continue
                 out.append(Found(paper.name, paper.url, t.name, t.caption, rkey, keys[j], c.text, c.value, c.spread, c.bold, t.file, c.line,
                                  direction(keys[j])))  # fmt: skip
+        out += _transposed(paper, t, keys, rows, cols)
+    return out
+
+
+def _transposed(paper: Paper, t: Table, keys: list[str], rows: list[re.Pattern[str]], cols: list[re.Pattern[str]]) -> list[Found]:
+    """A table with the models as its columns and the benchmarks as its rows: the cells under a column named like the
+    model, in rows named like the benchmark."""
+    model_cols = [j for j, k in enumerate(keys) if any(p.search(k.lower()) for p in rows)]
+    if not model_cols:
+        return []
+    out = []
+    for i, rkey in t.body():
+        if not any(p.search(rkey.lower()) for p in cols):
+            continue
+        r = t.rows[i]
+        for j in model_cols:
+            if j >= len(r) or j < t.row_start(i):
+                continue
+            c = r[j]
+            if c.value is not None:
+                out.append(Found(paper.name, paper.url, t.name, t.caption, keys[j], rkey, c.text, c.value, c.spread, c.bold, t.file, c.line,
+                                 direction(rkey), transposed=True))  # fmt: skip
     return out
 
 

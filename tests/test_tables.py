@@ -262,3 +262,17 @@ def test_review_round_2_command(tmp_path: Path, capsys: pytest.CaptureFixture[st
     assert cli.main(["extract", str(FIXTURE), str(tmp_path / "nope.tex"), "--format", "md"]) == 2
     io = capsys.readouterr()
     assert "Table 1" in io.out and "no such file or folder" in io.err
+
+
+def test_compare_in_a_table_with_the_models_as_columns(tmp_path: Path) -> None:
+    # ViT's Table 2: the datasets are rows, the models are columns
+    proj = tmp_path / "vit"
+    proj.mkdir()
+    (proj / "main.tex").write_text(
+        r"""\documentclass{a}\begin{document}\begin{table}\caption{Comparison}\begin{tabular}{lcc}
+& Ours (ViT-L/16) & BiT-L (ResNet152x4) \\ \midrule
+ImageNet & \textbf{87.76} & 87.54 \\ CIFAR-10 & 99.42 & 99.37 \\ \end{tabular}\end{table}\end{document}""",
+        encoding="utf-8",
+    )
+    found = find(read_project(proj / "main.tex"), [pattern("ViT-L/16")], [pattern("ImageNet", strict=False)])
+    assert [(f.row, f.column, f.value, f.bold, f.transposed) for f in found] == [("Ours (ViT-L/16)", "ImageNet", 87.76, True, True)]

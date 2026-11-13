@@ -10,6 +10,7 @@ From paper-proof's table reader (the same author's MIT project), extended.
 
 from __future__ import annotations
 
+import bisect
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -245,7 +246,17 @@ MULTICOLUMN = re.compile(r"\s*\\multicolumn\s*\{(\d+)\}\s*\{")  # then the colum
 MULTIROW = re.compile(r"\s*\\multirow\s*(?:\[[^\]]*\])?\s*\{(-?\d+)\}\s*(?:\[[^\]]*\])?\s*\{[^}]*\}\s*(?:\[[^\]]*\])?\s*\{")
 
 
-def _cells(row: str, offset: int, text: str, defs: Macros) -> tuple[list[Cell], dict[int, int]]:
+class _Lines:
+    """Line numbers of positions in a file, from an index of its line breaks (not a count from the top each time)."""
+
+    def __init__(self, text: str) -> None:
+        self.breaks = [m.start() for m in re.finditer("\n", text)]
+
+    def __call__(self, pos: int) -> int:
+        return bisect.bisect_left(self.breaks, pos) + 1
+
+
+def _cells(row: str, offset: int, lines: _Lines, defs: Macros) -> tuple[list[Cell], dict[int, int]]:
     """The row's cells, and the \\multirow spans it starts: {column: rows to fill, below (positive) or above}."""
     cells: list[Cell] = []
     spans: dict[int, int] = {}
@@ -266,7 +277,7 @@ def _cells(row: str, offset: int, text: str, defs: Macros) -> tuple[list[Cell], 
             down = (min(abs(n), MAX_ROWS) - 1) * (1 if n > 0 else -1)  # \multirow{-2}: the text is in the last row
             end = _matching(raw, m.end())
             raw = raw[m.end() : end if end > 0 else len(raw)]
-        line = text.count("\n", 0, offset + off + len(raw) - len(raw.lstrip())) + 1
+        line = lines(offset + off + len(raw) - len(raw.lstrip()))
         c = read_cell(raw, line, defs)
         c.span = span
         if down and c.text:
@@ -289,7 +300,7 @@ def _floats(text: str) -> list[_Float]:
     out: list[_Float] = []
     for m in FLOAT.finditer(text):
         env = m.group(1)
-        if env == "subtable" or any(f.start < m.start() < f.end for f in out):
+        if env == "subtable" or (out and m.start() < out[-1].end):  # floats come in order: inside the last one, or not
             continue
         end = text.find(f"\\end{{{env}}}", m.end())
         if end < 0:
@@ -313,8 +324,11 @@ def _floats(text: str) -> list[_Float]:
             caps = [(pos, cap, lab if k < len(labels) else "") for k, (pos, cap, lab) in enumerate(caps)]
         out.append(_Float(m.start(), end, caps))
     # a table captioned with \captionof{table} outside a table float (in a minipage of a figure): numbered by LaTeX too
+    starts = [f.start for f in out]
+    floats_only = list(out)
     for c in re.finditer(r"\\captionof\s*\{table\}\s*(?:\[[^\]]*\])?\s*\{", text):
-        if any(f.start < c.start() < f.end for f in out):
+        k = bisect.bisect_right(starts, c.start()) - 1
+        if k >= 0 and c.start() < floats_only[k].end:
             continue
         close = _matching(text, c.end())
         cap = text[c.end() : close] if close > 0 else ""
@@ -390,10 +404,12 @@ def find_tables(files: list[tuple[str, str]], includes: dict[str, list[tuple[int
     for file, text in files:
         floats = all_floats[file]
         starts = [m.start() for m in ENV.finditer(text)]
+        float_starts = [f.start for f in floats]
+        lines = _Lines(text)
         done: list[tuple[int, int]] = []
         for m in ENV.finditer(text):
-            if any(a < m.start() < b for a, b in done):
-                continue  # a tabular inside a cell of another: part of that cell
+            if done and m.start() < done[-1][1]:
+                continue  # a tabular inside a cell of another (the last one read): part of that cell
             env = m.group(1)
             i = m.end()
             for _ in range(2 if env in ("tabular*", "tabularx", "tabulary") else 1):  # a width, then the column spec
@@ -406,16 +422,18 @@ def find_tables(files: list[tuple[str, str]], includes: dict[str, list[tuple[int
             if close < 0:
                 continue
             done.append((m.start(), close))
-            fi = next((k for k, f in enumerate(floats) if f.start <= m.start() <= f.end), None)
+            k = bisect.bisect_right(float_starts, m.start()) - 1  # the float it is in, if any (floats do not overlap)
+            fi = k if k >= 0 and m.start() <= floats[k].end else None
             num, label, caption = None, "", ""
             if fi is not None:
                 f = floats[fi]
-                ci = _caption_of(f, [s for s in starts if f.start < s < f.end], m.start())
+                inside = starts[bisect.bisect_right(starts, f.start) : bisect.bisect_left(starts, f.end)]
+                ci = _caption_of(f, inside, m.start())
                 if ci is not None:
                     num = first[(file, fi)] + ci
                     caption, label = plain(f.captions[ci][1], defs), f.captions[ci][2]
-            t = Table(file, text.count("\n", 0, m.start()) + 1, num, label, caption)
-            _fill(t, text, i, close, defs)
+            t = Table(file, lines(m.start()), num, label, caption)
+            _fill(t, text, i, close, defs, lines)
             if any(c.text for r in t.rows for c in r):  # a tabular of images only lays out a figure: not a table
                 tables.append(t)
     return tables
@@ -431,7 +449,8 @@ def _rule_macros(defs: Macros) -> tuple[re.Pattern[str] | None, set[str]]:
     return re.compile(r"\\(" + "|".join(sorted(map(re.escape, names), key=len, reverse=True)) + r")(?![A-Za-z@])(?:\s*\{\})?"), full
 
 
-def _fill(t: Table, text: str, start: int, close: int, defs: Macros) -> None:
+def _fill(t: Table, text: str, start: int, close: int, defs: Macros, lines: _Lines | None = None) -> None:
+    lines = lines or _Lines(text)
     body = text[start:close]
     first_rule_row = None
     rule_use, full_rules = _rule_macros(defs)
@@ -446,7 +465,7 @@ def _fill(t: Table, text: str, start: int, close: int, defs: Macros) -> None:
         clean = RULE.sub(lambda r: " " * len(r.group(0)), _blank_braced(row))
         if not clean.strip():
             continue
-        cells, spans = _cells(clean, start + off, text, defs)
+        cells, spans = _cells(clean, start + off, lines, defs)
         for j, down in [(j, d) for j, d in spans.items() if d < 0]:  # \multirow{-n}: the rows above get the text
             for k in range(1, -down + 1):
                 if len(t.rows) >= k and j < len(t.rows[-k]) and not t.rows[-k][j].text:

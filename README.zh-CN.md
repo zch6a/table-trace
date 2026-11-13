@@ -33,11 +33,11 @@ $ table-trace compare 1512.03385 2012.12877 2201.03545 1905.11946 --row ResNet-5
 
 ## 能读什么
 
-- **表格**：`tabular`、`tabular*`、`tabularx`、`tabulary`、`longtable`、`array`、`tblr`；`\multicolumn`（跨列表头会接到下面各列的列名上，例如“ImageNet Top-1”）、`\multirow`（行名会向下填到它跨越的各行）；booktabs 的横线、`\hline`、makecell 的 `\Xhline`、`\noalign`，以及论文自己用宏画的横线。
-- **表号**：和论文里一样的 Table 1、2……：每个表格标题算一张表，同一个浮动体里并排的两张表算两张，子表的标题不算新表；同时给出每张表的 `\label` 和标题。
+- **表格**：`tabular`、`tabular*`、`tabularx`、`tabulary`、`longtable`、`array`、`tblr`；`\multicolumn`（跨列表头会接到下面各列的列名上，例如“ImageNet Top-1”）、`\multirow`（行名会向下填到它跨越的各行）；booktabs 的横线、`\hline`、makecell 的 `\Xhline`、`\noalign`，以及论文自己用宏画的横线；单元格里嵌套的 tabular 算作这个单元格的文字。
+- **表号**：和论文里一样的 Table 1、2……：每个表格标题算一张表，同一个浮动体里并排的两张表算两张，子表的标题不算新表，`\captionof{table}` 也算一张，`\input` 文件里的表按它被引入的位置编号；同时给出每张表的 `\label` 和标题。
 - **单元格**：印出来的文字（展开论文自己的 `\newcommand` 和 `\def` 宏，去掉 `\textbf{}` 等格式，`\pm`、`\dagger`、`\uparrow` 显示为 ±、†、↑，去掉引用）；结果（单元格是结果时取第一个数，`125M`、`50 epochs` 不算结果）、± 标准差、百分号、加粗（作者标的最好）和下划线（常表示次好）、单元格里的所有数字（如 `89.3/82.1`），以及文件和行号。
 - **越高越好还是越低越好**：根据表头里的箭头或指标名判断（准确率、BLEU、top-1 越高越好，错误率、FID、延迟越低越好）。所以 `compare` 遇到错误率和准确率放在一起时会提醒。
-- **来源**：arXiv 编号或链接（源码下载到临时目录，读完即删，两篇论文之间间隔三秒）、LaTeX 项目文件夹或 .tex 文件；会跟随 `\input` 和 `\include`，忽略注释和 `\iffalse` 里的内容。
+- **来源**：arXiv 编号或链接（源码下载到临时目录，读完即删，两篇论文之间间隔三秒）、LaTeX 项目文件夹（没有主文件的表格片段文件夹也行）或 .tex 文件；会跟随 `\input` 和 `\include`，忽略注释和 `\iffalse` 里的内容。
 
 在 25 篇知名论文上试过（ResNet、ViT、BERT、T5、LoRA、DeiT、ConvNeXt、Swin、EfficientNet、CLIP、LLaMA、Transformer、GPT-3、Llama 2、Mistral、DPO、DDPM、Stable Diffusion、MAE、SimCLR、RoBERTa、FlashAttention、GAN、YOLO，以及没有表格的 Adam）：约 28,300 个单元格，单元格文字里没有残留的 LaTeX；ResNet 的 14 张表的表号和 label 与论文一致。
 
@@ -50,7 +50,7 @@ uvx --from git+https://github.com/zch6a/table-trace table-trace extract paper/ -
 uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
 ```
 
-`compare` 的 `--row` 和 `--col` 可以写多次（不同写法：`--row ResNet-50 --row R50`），`--caption` 只保留标题里提到某个词的表。名字按其中的单词和数字依次匹配，不管空格、连字符和大小写：“ResNet-50”能找到“ResNet50”和“ResNet 50”，不会找到“ResNet-101”“ResNet-50x2”“SE-ResNet-50”或“R50x1+ViT-B/16”这样的其他模型。没有依赖；需要 Python 3.10+。
+`compare` 的 `--row` 和 `--col` 可以写多次（不同写法：`--row ResNet-50 --row R50`），`--caption` 只保留标题里提到某个词的表。模型在列、基准在行的表（例如 ViT 的表 2）会反过来读，结果里会注明。名字按其中的单词和数字依次匹配，不管空格、连字符和大小写：“ResNet-50”能找到“ResNet50”和“ResNet 50”，不会找到“ResNet-101”“ResNet-50x2”“SE-ResNet-50”或“R50x1+ViT-B/16”这样的其他模型。没有依赖；需要 Python 3.10+。读一篇论文只要零点几秒（GPT-3 的 95 个文件、75 张表用 0.13 秒），大部分时间花在从 arXiv 下载源码上。
 
 ## 局限
 
