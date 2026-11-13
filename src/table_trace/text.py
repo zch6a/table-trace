@@ -5,6 +5,7 @@ arguments), formatting dropped, symbols as Unicode (± × † ↑ ✓), citation
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 MACRO_DEF = re.compile(
     r"\\(?:re)?newcommand\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*(?:\[([^\]]*)\])?\s*\{"
@@ -100,6 +101,16 @@ def _args(s: str, i: int, n: int, default: str | None = None) -> tuple[list[str]
     return args, i
 
 
+def _filler(args: list[str]) -> Callable[[re.Match[str]], str]:
+    """What each #k of a macro's body becomes: its k-th argument (nothing for a k beyond them)."""
+
+    def fill(m: re.Match[str]) -> str:
+        k = int(m.group(1))
+        return args[k - 1] if 0 < k <= len(args) else ""
+
+    return fill
+
+
 def expand(s: str, defs: Macros) -> str:
     r"""The document's macros expanded in `s` (five rounds at most, and no more than MAX_EXPANSION characters, counted
     as it grows: a macro that doubles itself stops there, not after allocating gigabytes).
@@ -125,7 +136,7 @@ def expand(s: str, defs: Macros) -> str:
                 continue
             args, j = got
             # every #k at once: an argument holding "#2" is not filled in again
-            body = re.sub(r"#(\d)", lambda a: args[int(a.group(1)) - 1] if 0 < int(a.group(1)) <= len(args) else "", body)
+            body = re.sub(r"#(\d)", _filler(args), body)
             out += [s[i : m.start()], body]
             size += m.start() - i + len(body)
             i, changed = j, True

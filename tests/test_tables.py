@@ -214,7 +214,7 @@ def test_review_round_2_numbering(tmp_path: Path) -> None:
     # a table in an \input file is numbered where the file is included
     proj = tmp_path / "p"
     proj.mkdir()
-    tab = lambda c: r"\begin{table}\caption{%s}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\end{table}" % c  # noqa: E731
+    tab = lambda c: r"\begin{table}\caption{CAP}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\end{table}".replace("CAP", c)  # noqa: E731
     (proj / "main.tex").write_text(
         r"\documentclass{a}\begin{document}" + tab("First") + r"\input{t2}" + tab("Third") + r"\end{document}", encoding="utf-8"
     )
