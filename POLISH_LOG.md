@@ -113,3 +113,5 @@ is now said to be five of its fourteen lines; the count of papers and cells is u
 Tests: 23 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
 
 Next: polishing round 3 (speed on long sources; the README read again; the agent skill tried).
+
+The round's commit (9f90722) went out with three lint errors (ruff: a lambda not binding its loop variable, a percent-formatted string in a test), so CI failed; fixed in 13bbaa7 (a typed helper for the macro arguments). The gates now run before any commit in one step that stops on a failure.
