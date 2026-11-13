@@ -67,13 +67,13 @@ as in the paper.
 ## Use it
 
 ```bash
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 1512.03385                 # JSON
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 1512.03385 --format md     # Markdown, bold kept
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract paper/ --table 2 --format csv
-uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 1512.03385                 # JSON
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 1512.03385 --format md     # Markdown, bold kept
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract paper/ --table 2 --format csv
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
 ```
 
-`compare` takes `--row` and `--col` several times (other spellings: `--row ResNet-50 --row R50`) and `--caption` to keep
+`@v0` is the latest release (drop it for the main branch). `compare` takes `--row` and `--col` several times (other spellings: `--row ResNet-50 --row R50`) and `--caption` to keep
 only tables whose caption names something. A table with the models as its columns and the benchmarks as its rows (ViT's
 Table 2) is read the other way round, and its results are marked so. Names match by their words and numbers in order, whatever the spacing,
 hyphens or case: "ResNet-50" finds "ResNet50" and "ResNet 50", not other models such as "ResNet-101",

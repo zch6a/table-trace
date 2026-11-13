@@ -12,7 +12,9 @@
   drive, a network path or a name leading out of it. The LaTeX is read as text with regular expressions; nothing in it
   is run. Macro expansion and table sizes are bounded (a cell grows to 20,000 characters at most; `\multicolumn` spans
   64 columns at most; 5,000 rows a table).
-- **What is kept.** Nothing: the output is the tables' text and numbers with where they are.
+- **What is kept.** Nothing: the output is the tables' text and numbers with where they are. In CSV, a field that
+  starts like a spreadsheet formula (`=`, `+`, `@`, or `-` before a non-number) is prefixed with `'`, so that a
+  spreadsheet shows it rather than runs it.
 - **Dependencies.** None at run time.
 
 ## Reporting a vulnerability

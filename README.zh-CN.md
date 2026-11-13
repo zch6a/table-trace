@@ -44,13 +44,13 @@ $ table-trace compare 1512.03385 2012.12877 2201.03545 1905.11946 --row ResNet-5
 ## 使用
 
 ```bash
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 1512.03385                 # JSON
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 1512.03385 --format md     # Markdown，保留加粗
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract paper/ --table 2 --format csv
-uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 1512.03385                 # JSON
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 1512.03385 --format md     # Markdown，保留加粗
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract paper/ --table 2 --format csv
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
 ```
 
-`compare` 的 `--row` 和 `--col` 可以写多次（不同写法：`--row ResNet-50 --row R50`），`--caption` 只保留标题里提到某个词的表。模型在列、基准在行的表（例如 ViT 的表 2）会反过来读，结果里会注明。名字按其中的单词和数字依次匹配，不管空格、连字符和大小写：“ResNet-50”能找到“ResNet50”和“ResNet 50”，不会找到“ResNet-101”“ResNet-50x2”“SE-ResNet-50”或“R50x1+ViT-B/16”这样的其他模型。没有依赖；需要 Python 3.10+。读一篇论文只要零点几秒（GPT-3 的 95 个文件、75 张表用 0.13 秒），大部分时间花在从 arXiv 下载源码上。
+`@v0` 是最新的发布版（去掉它就用主分支）。`compare` 的 `--row` 和 `--col` 可以写多次（不同写法：`--row ResNet-50 --row R50`），`--caption` 只保留标题里提到某个词的表。模型在列、基准在行的表（例如 ViT 的表 2）会反过来读，结果里会注明。名字按其中的单词和数字依次匹配，不管空格、连字符和大小写：“ResNet-50”能找到“ResNet50”和“ResNet 50”，不会找到“ResNet-101”“ResNet-50x2”“SE-ResNet-50”或“R50x1+ViT-B/16”这样的其他模型。没有依赖；需要 Python 3.10+。读一篇论文只要零点几秒（GPT-3 的 95 个文件、75 张表用 0.13 秒），大部分时间花在从 arXiv 下载源码上。
 
 ## 局限
 

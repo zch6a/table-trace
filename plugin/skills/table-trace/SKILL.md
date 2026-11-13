@@ -2,7 +2,7 @@
 name: table-trace
 description: Read the exact numbers in a paper's result tables (from its arXiv LaTeX source, each with its table, row, column, file and line), or compare what several papers report for the same model on the same benchmark, with table-trace. Use when the user asks for a paper's reported results, a baseline's numbers, or why papers disagree on a model's score.
 license: MIT
-compatibility: Needs Python 3.10+ and uv. Runs table-trace with uvx from GitHub (git+https://github.com/zch6a/table-trace). Fetches each paper's source from arXiv (three seconds apart); a local LaTeX folder needs no network.
+compatibility: Needs Python 3.10+ and uv. Runs table-trace with uvx from GitHub (git+https://github.com/zch6a/table-trace@v0). Fetches each paper's source from arXiv (three seconds apart); a local LaTeX folder needs no network.
 metadata:
   homepage: https://github.com/zch6a/table-trace
 ---
@@ -10,9 +10,9 @@ metadata:
 # A paper's table numbers, traced, with table-trace
 
 ```bash
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 2010.11929 --format md          # every table
-uvx --from git+https://github.com/zch6a/table-trace table-trace extract 2010.11929 --table 2            # one table, JSON
-uvx --from git+https://github.com/zch6a/table-trace table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 2010.11929 --format md          # every table
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace extract 2010.11929 --table 2            # one table, JSON
+uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.11929 2012.12877 --row "ViT-B/16" --col ImageNet --json
 ```
 
 - Quote numbers with where they are: "Table 5, row ResNet-50, column ImNet top-1: 76.2 (experiments.tex:197)". Bold

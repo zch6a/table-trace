@@ -165,3 +165,18 @@ release (and runs nothing of the project), `persist-credentials: false`, a timeo
 Tests: 24 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
 
 Next: polishing round 5 (the documents read through; the CHANGELOG as release notes), then v0.1.0.
+
+### 2026-11-14 — polishing round 5, and v0.1.0
+
+**The documents read through**, both languages: every limit SECURITY states is the code's (200 MB download, 500 MB
+unpacked, 20,000 characters a cell, 64 columns a `\multicolumn`, 5,000 rows a table, three seconds between requests);
+SECURITY now says how CSV keeps a formula-like field from running in a spreadsheet. The commands use `@v0`, the
+release (README in both languages, the skill), with a note that dropping it gives the main branch. Every version
+number (pyproject, package, plugin) is 0.1.0.
+
+**The CHANGELOG as release notes**: reading a paper, the tables, each cell, the two commands, what it was tried on.
+
+Tests: 24 (doctests included), made-up LaTeX, no network; the fuzz's 300 rounds in CI. ruff, ruff format, mypy clean.
+
+**v0.1.0**: tagged (annotated); the release workflow tests, builds the wheel and source archive, makes the GitHub
+release from the CHANGELOG section and points v0 at it.
