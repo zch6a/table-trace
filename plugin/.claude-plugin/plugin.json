@@ -1,0 +1,10 @@
+{
+  "name": "table-trace",
+  "description": "Every number in a paper's tables, read from its LaTeX source and traced to its cell; and what papers report for the same model on the same benchmark.",
+  "version": "0.1.0",
+  "author": { "name": "zch6a" },
+  "homepage": "https://github.com/zch6a/table-trace",
+  "repository": "https://github.com/zch6a/table-trace",
+  "license": "MIT",
+  "keywords": ["research", "papers", "arxiv", "tables", "results", "reproducibility", "claude-code"]
+}

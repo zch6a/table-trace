@@ -1,0 +1,62 @@
+[project]
+name = "table-trace"
+version = "0.1.0"
+description = "Every number in a paper's tables, read from its LaTeX source (arXiv or local) and traced to its cell: text, result, ± spread, bold, file and line; and what papers report for the same model on the same benchmark, side by side."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "zch6a" }]
+keywords = ["research", "papers", "arxiv", "latex", "tables", "results", "reproducibility", "benchmarks", "provenance"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/zch6a/table-trace"
+Issues = "https://github.com/zch6a/table-trace/issues"
+
+[project.scripts]
+table-trace = "table_trace.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/table_trace"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["docs/"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+pythonpath = ["src", "tests"]
+addopts = "--doctest-modules --import-mode=importlib"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/table_trace"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 150
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["E501"]  # the formatter wraps the code; messages and docs stay whole

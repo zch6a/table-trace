@@ -1,0 +1,20 @@
+\documentclass{article}
+\newcommand{\ours}{\textsc{Ours}}
+\newcommand{\best}[1]{\textbf{#1}}
+\begin{document}
+\begin{table}[t]
+\caption{Top-1 accuracy (\%) on ImageNet.}\label{tab:main}
+\begin{tabular}{llcc}
+\toprule
+\multirow{2}{*}{Method} & \multirow{2}{*}{Backbone} & \multicolumn{2}{c}{ImageNet} \\
+\cmidrule(lr){3-4}
+ & & Top-1 & Top-5 \\
+\midrule
+\multirow{2}{*}{Supervised~\cite{he2016}} & ResNet-50 & 76.1 & 92.9 \\
+ & ResNet-101 & 77.4 & 93.5 \\
+\ours{} & ResNet-50 & \best{78.3}$\pm$0.2 & \underline{94.1} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\input{appendix}
+\end{document}

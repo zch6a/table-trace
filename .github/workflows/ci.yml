@@ -1,0 +1,44 @@
+name: CI
+on: [push, pull_request]
+# Read-only: tests need no write access.
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.13"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      # Actions pinned to commits; the token is not left in the checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3; it has no moving major tag
+        with:
+          python-version: ${{ matrix.python }}
+      # No test reaches the network: made-up LaTeX. --locked: a stale uv.lock fails here.
+      - run: uv run --locked pytest -q
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked mypy src
+  # The wheel, built from the source archive as an installer would: a clean install runs, with no dependencies.
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3; it has no moving major tag
+      - run: uv build
+      - name: A clean install runs
+        run: |
+          uv venv --python 3.10 "$RUNNER_TEMP/clean"
+          uv pip install --python "$RUNNER_TEMP/clean/bin/python" dist/*.whl
+          "$RUNNER_TEMP/clean/bin/table-trace" --version
+          "$RUNNER_TEMP/clean/bin/table-trace" extract tests/fixtures/paper --format md | grep -q '78.3'
+          "$RUNNER_TEMP/clean/bin/python" -c "import importlib.metadata as m; r = m.requires('table-trace'); assert not r, r"
