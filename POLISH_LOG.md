@@ -141,3 +141,27 @@ Tests: 24 (doctests included), made-up LaTeX, no network. ruff, ruff format, myp
 
 Next: polishing round 4 (engineering: a clean install from the wheel, the workflows, a dependency check, a fuzz of the
 readers).
+
+### 2026-11-14 — polishing round 4
+
+**Broken inputs** (`scripts/fuzz.py`, new): mutations of a corpus of tables that use what the readers handle
+(`\multicolumn` with braced specs, `\multirow{-n}`, rule macros and `\noalign`, nested tabulars, subtables,
+`\captionof{table}`, optional-argument macros, `\iffalse` with `\iff`, models as columns) — pieces repeated, removed or
+cut short, LaTeX fragments spliced in (an unclosed `\multicolumn{`, `\def\a{\a\a}\a`, a stray `\end{tabular}`, NUL) —
+through `find_tables`, the row and column keys and `compare`; and mutated .tar.gz sources (with `../` and absolute
+names, bytes flipped, cut short) through the unpacking and the project reading, checking that nothing lands outside
+its folder. 500 rounds (seed 0) and 5,000 each with seeds 1, 2 and 3: 15,500 rounds, about 3,100 archives, no failure,
+the slowest case 0.01 s. (The fuzz script's own check for escaped files first looked through every earlier folder,
+which made 5,000 rounds take two minutes; it now looks only beside the folder and removes each one: 16 s.) CI runs
+300 rounds on every push.
+
+**A clean install** (the sdist, the wheel built from it, a new Python 3.10 environment): `--version`, no requirements
+at all, `compare` on the fixture. The sdist holds the sources, tests, fixture, scripts and documents, not `docs/`.
+
+**Workflows and dependencies**: actions pinned to commits, read-only tokens but for the release job that writes the
+release (and runs nothing of the project), `persist-credentials: false`, a timeout on every job, `--locked`;
+`pip-audit` on the 15 locked development packages: no known vulnerabilities. At run time there is nothing to audit.
+
+Tests: 24 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
+
+Next: polishing round 5 (the documents read through; the CHANGELOG as release notes), then v0.1.0.

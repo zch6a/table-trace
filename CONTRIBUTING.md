@@ -16,6 +16,7 @@ uv run table-trace extract tests/fixtures/paper --format md
 | `src/table_trace/tables.py` | the tables: numbers and captions, rows and cells, results, ±, bold, underline, file and line |
 | `src/table_trace/compare.py` | one model on one benchmark across papers: name patterns, matching cells |
 | `src/table_trace/cli.py` | `extract` (JSON, Markdown, CSV) and `compare` |
+| `scripts/fuzz.py` | broken LaTeX and archives through the readers (`--rounds 5000`; CI runs 300) |
 
 ## A table it reads wrongly
 
