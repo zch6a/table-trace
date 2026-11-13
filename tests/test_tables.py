@@ -198,3 +198,67 @@ def test_odd_sources(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
     assert "nothing matched --row BERT in a column named Top-1" in capsys.readouterr().err
     assert cli.main(["compare", str(FIXTURE), "--row=---", "--col", "Top-1"]) == 2
     assert "no words or numbers" in capsys.readouterr().err
+
+
+def test_review_round_2_numbering(tmp_path: Path) -> None:
+    # a caption after its subtables, far into the file, is the table's
+    tex = (
+        "\n" * 300
+        + r"""\begin{table}
+\begin{subtable}{.5\linewidth}\caption{a}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\end{subtable}
+\begin{subtable}{.5\linewidth}\caption{b}\begin{tabular}{lc} M & A \\ \hline y & 2.0 \\ \end{tabular}\end{subtable}
+\caption{Main}\label{tab:main}\end{table}"""
+    )
+    a, b = tables_of(tex)
+    assert (a.number, a.caption, a.label) == (b.number, b.caption, b.label) == (1, "Main", "tab:main")
+    # a table in an \input file is numbered where the file is included
+    proj = tmp_path / "p"
+    proj.mkdir()
+    tab = lambda c: r"\begin{table}\caption{%s}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\end{table}" % c  # noqa: E731
+    (proj / "main.tex").write_text(
+        r"\documentclass{a}\begin{document}" + tab("First") + r"\input{t2}" + tab("Third") + r"\end{document}", encoding="utf-8"
+    )
+    (proj / "t2.tex").write_text(tab("Second"), encoding="utf-8")
+    paper = read_project(proj / "main.tex")
+    assert sorted((t.number, t.caption) for t in find_tables(paper.files, paper.includes)) == [(1, "First"), (2, "Second"), (3, "Third")]
+    # a table captioned with \captionof{table} in a figure's minipage is numbered, and so the next one is Table 2
+    tex = r"""\begin{figure}\begin{minipage}{.5\linewidth}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\captionof{table}{Side}\end{minipage}\end{figure}
+""" + tab("Next")
+    side, nxt = tables_of(tex)
+    assert (side.number, side.caption, nxt.number) == (1, "Side", 2)
+
+
+def test_review_round_2_parsing() -> None:
+    # a tabular nested in a cell: the outer table keeps every row, the inner one is the cell's text
+    (t,) = tables_of(r"""\begin{tabular}{lc} Model & Acc. \\ \hline
+\begin{tabular}{c} Big \\ model \end{tabular} & 1.0 \\ Ours & 2.0 \\ \end{tabular}""")
+    assert [k for _, k in t.body()] == ["Big model", "Ours"] and t.rows[2][1].value == 2.0
+    # a rule's arguments are its own: the next cell is not swallowed
+    (t,) = tables_of(r"""\begin{tabular}{lc} Model & Acc. \\ \hline {\bf Ours} & 2.0 \\ \cline{1-2} {\em Two} & 3.0 \\
+\addlinespace {\it Three} & 4.0 \\ \rowcolor{gray!20}{\bf Four} & 5.0 \\ \rowcolor[HTML]{EEEEEE} Five & 6.0 \\ \end{tabular}""")
+    assert [k for _, k in t.body()] == ["Ours", "Two", "Three", "Four", "Five"]
+    # a column spec with braces in \multicolumn; a spanning header in the only header row
+    (t,) = tables_of(r"""\begin{tabular}{lcc} Model & \multicolumn{2}{@{}c@{}}{ImageNet} \\ \hline x & 1.0 & 2.0 \\ \end{tabular}""")
+    assert t.columns() == ["Model", "ImageNet", "ImageNet (2)"]
+    # \multirow{-2}: the text is written in the last row of its span and covers the row above
+    (t,) = tables_of(r"""\begin{tabular}{llc} G & M & A \\ \hline & a & 1.0 \\ \multirow{-2}{*}{Group} & b & 2.0 \\ \end{tabular}""")
+    assert [k for _, k in t.body()] == ["Group | a", "Group | b"]
+    # a column of years describes the rows; it is not a result
+    (t,) = tables_of(r"""\begin{tabular}{lcc} Model & Year & Acc. \\ \hline BERT & 2019 & 80.1 \\ T5 & 2020 & 82.3 \\ \end{tabular}""")
+    assert [k for _, k in t.body()] == ["BERT | 2019", "T5 | 2020"] and t.rows[1][2].value == 80.1
+
+
+def test_review_round_2_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    risky = tmp_path / "risky"
+    risky.mkdir()
+    (risky / "main.tex").write_text(
+        r"\documentclass{a}\begin{document}\begin{table}\caption{x}\begin{tabular}{lc} M & A \\ \hline =HYPERLINK(1) & 1.0 \\ -0.5 & 2.0 \\ \end{tabular}\end{table}\end{document}",
+        encoding="utf-8",
+    )
+    assert cli.main(["extract", str(risky), "--format", "csv"]) == 0
+    out = capsys.readouterr().out
+    assert ",'=HYPERLINK(1)," in out and ",'=" not in out.replace(",'=HYPERLINK", "")  # a formula is quoted, a number not
+    # one paper that cannot be read does not stop the others; the run says so with exit 2
+    assert cli.main(["extract", str(FIXTURE), str(tmp_path / "nope.tex"), "--format", "md"]) == 2
+    io = capsys.readouterr()
+    assert "Table 1" in io.out and "no such file or folder" in io.err

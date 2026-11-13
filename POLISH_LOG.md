@@ -67,3 +67,49 @@ number with its table and line.
 Tests: 20 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
 
 Next: polishing round 2 (an independent review of the code; the README's claims against real runs).
+
+### 2026-11-14 — polishing round 2
+
+**An independent review** (unpacking and `\input` paths found safe; 9 bugs and 7 smaller issues, all reproduced with
+made-up LaTeX; 15 fixed, each with a test):
+- **Numbering.** A subtable's end was looked for from the wrong offset, so in a long file a table's own caption, written
+  after its subtables, was taken as inside one and dropped (the table unnumbered, every later number one off). Tables
+  in an `\input` file were numbered after the whole parent file; they are now numbered where the file is included
+  (the project reader records where each file inputs another). A table captioned with `\captionof{table}` outside a
+  table float (in a figure's minipage) had no number, so the next table was “Table 1” where LaTeX prints Table 2.
+- **A tabular nested in a cell** ended the outer table at the inner one's `\end`: the rows after it were lost and the
+  inner one came out as a second table. Ends are now matched by depth, the splitter keeps a nested tabular's `&` and
+  `\\` in its cell, and its text is the cell's.
+- **Rules took the next cell as an argument**: `\hline {\bf Ours} & 2.0`, `\cline{1-2} {\em Ours}`, `\addlinespace {\it
+  Ours}`, `\rowcolor{gray!20}{\bf Ours}` gave an empty name (so `compare` never found the row), and `\rowcolor[HTML]{EEEEEE}`
+  left “EEEEEE” in it. Each rule now takes its own arguments only.
+- **`\multicolumn` with braces in its column spec** (`{@{}c@{}}`, `{>{\centering}p{2cm}}`) was not recognised: the header
+  read “multicolumn2@c@ImageNet” and the columns after it shifted. A spanning header in the only header row now covers
+  its columns too.
+- **Names**: “GPT-3” matched GPT-3.5 and “ViT-B/16” matched ViT-B/16/384: a name followed by `.5` or `/384` is another
+  model now; “C++” keeps its pluses.
+- **Macros with an optional first argument** (`\newcommand{\res}[2][0.0]{#2 (#1)}`) ignored the default and took the next
+  token; arguments are now put in at once (an argument holding `#2` is not filled again); and the expansion limit is
+  counted as it grows, so a macro that doubles itself stops at 20,000 characters instead of allocating gigabytes (and
+  running out of memory would now be a message).
+- **`\iff` inside an `\iffalse` block** (the maths symbol) counted as an `\if`, so the block never closed and every table
+  after it was blanked: only TeX's conditionals and those `\newif` declares count now.
+- **Smaller**: `\multirow{-2}` (text in the last row of its span) filled downwards, now upwards; a column of years (BERT
+  & 2019 & 80.1) was the first result, now not; “2018-2019” and “125m” were results, now not (a letter after a number
+  counts only as a superscript mark: 75.3$^a$); `\textminus` is a minus; CSV fields that start like a formula (=, +, @,
+  - before a non-number) are quoted for spreadsheets; one paper that cannot be read no longer stops the others (exit 2
+  at the end).
+- Not changed: “75.3 (0.2)” has no spread (a bracketed number after a result is as often a delta); parsing is otherwise
+  conservative (a miss, not a wrong number).
+
+**On the real papers** after the fixes: ConvNeXt, Swin and Llama 2 nest tabulars, so their tables had been cut short —
+ConvNeXt now reads 1,055 cells in 12 tables (633 in 27 before), Swin 893 (624), Llama 2 3,558 (2,686); CLIP's and
+DDPM's tables numbered in full (19 and 4); no LaTeX in any cell's text. 25 papers, about 28,300 cells.
+
+**The README against real runs**: every command, as written, from GitHub in an empty folder: `extract` (JSON 18 tables,
+Markdown 18, CSV of the local fixture), `compare` (the ResNet-50 example line for line, the ViT-B/16 one). The example
+is now said to be five of its fourteen lines; the count of papers and cells is up to date.
+
+Tests: 23 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
+
+Next: polishing round 3 (speed on long sources; the README read again; the agent skill tried).

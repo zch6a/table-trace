@@ -14,13 +14,18 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .text import _matching, macros, plain
+from .text import Macros, _matching, macros, plain
 
 ENV = re.compile(r"\\begin\{(tabular\*?|tabularx|tabulary|longtable|array|tblr)\}")
 FLOAT = re.compile(r"\\begin\{(table\*?|sidewaystable\*?|wraptable|subtable)\}")
+# rules between rows, each with its own arguments only (a {\bf Ours} after \hline is the next cell, not an argument)
 RULE = re.compile(
-    r"\\(?:toprule|midrule|bottomrule|hline|specialrule|cmidrule|cline|hdashline|Xhline|Xcline|hhline|thickhline|addlinespace|endhead|endfirsthead|endfoot|endlastfoot|"
-    r"rowcolor|rowcolors|noalign)\b(?:\s*\([^)]*\))?(?:\s*\{[^}]*\})*(?:\s*\[[^\]]*\])?"
+    r"\\(?:(?:toprule|midrule|bottomrule)(?:\s*\[[^\]]*\])?"
+    r"|cmidrule(?:\s*\([^)]*\))?(?:\s*\[[^\]]*\])?\s*\{[^}]*\}"
+    r"|cline\s*\{[^}]*\}|Xcline\s*\{[^}]*\}\s*\{[^}]*\}"
+    r"|addlinespace(?:\s*\[[^\]]*\])?"
+    r"|rowcolor\s*(?:\[[^\]]*\])?\s*\{[^}]*\}(?:\s*\[[^\]]*\]){0,2}"
+    r"|hline|hdashline|thickhline|endhead|endfirsthead|endfoot|endlastfoot)(?![A-Za-z@])"
 )
 FULL_RULE = re.compile(r"\\(?:toprule|midrule|bottomrule|hline|specialrule|hdashline|Xhline|thickhline|hhline)\b")
 MAX_SPAN = 64  # \multicolumn{3000000}{c}{x} must not allocate millions of cells
@@ -29,9 +34,8 @@ BOLD = re.compile(r"\\(?:textbf|mathbf|boldsymbol|bm|pmb|bfseries)\b|\{\s*\\bf\b
 UNDERLINE = re.compile(r"\\(?:underline|uline|ul|underbar|second|secondbest)\b")
 NUMBER = re.compile(r"(?<![\w.])[-−]?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)(?![\d])")
 # commands between rows whose braces nest (\noalign{\global\savewidth\arrayrulewidth ...}): blanked whole
-BRACED = re.compile(
-    r"\\(?:noalign|specialrule|Xhline|Xcline|hhline|arrayrulecolor|rowcolors|cmidrule(?:\([^)]*\))?|addlinespace|vspace|hspace)\s*(?:\[[^\]]*\])?\s*\{"
-)
+BRACED = re.compile(r"\\(noalign|specialrule|Xhline|hhline|arrayrulecolor|rowcolors|vspace|hspace)\*?\s*(?:\[[^\]]*\])?\s*\{")
+GROUPS = {"specialrule": 3, "rowcolors": 3}  # how many {...} each takes (others: one)
 LOWER = re.compile(
     r"\b(?:err(?:or)?s?|err\.|loss|perplexity|ppl|fid|kid|wer|cer|ter|mse|mae|rmse|nll|bpd|bpc|eer|latency|time|runtime|"
     r"seconds?|ms|hours?|params?|parameters|flops|macs|memory|mem|cost|chamfer|lpips|distance|regret|abs ?rel|sq ?rel)\b",
@@ -68,13 +72,13 @@ def _blank_braced(row: str) -> str:
         if m.start() < i:
             continue
         j = m.end()
-        for _ in range(3):  # \specialrule{w}{a}{b}: up to three groups
+        for g in range(GROUPS.get(m.group(1), 1)):  # \specialrule{w}{a}{b}: three groups; \noalign{...}: one
             end = _matching(row, j)
             if end < 0:
                 break
             j = end + 1
             k = re.match(r"\s*\{", row[j:])
-            if not k or not m.group(0).startswith(("\\specialrule", "\\noalign")) or m.group(0).startswith("\\noalign"):
+            if not k or g + 1 >= GROUPS.get(m.group(1), 1):
                 break
             j += k.end()
         out += [row[i : m.start()], " " * (j - m.start())]
@@ -123,15 +127,14 @@ class Table:
         number."""
         width = max((len(r) for r in self.rows), default=0)
         head = []
-        for k, r in enumerate(self.rows[: self.header_rows]):
+        for r in self.rows[: self.header_rows]:
             texts = [r[j].text if j < len(r) else "" for j in range(width)]
-            if k < self.header_rows - 1:  # a spanning header: \multicolumn leaves empty cells after its text
-                j = 0
-                while j < len(r):
-                    for s in range(1, r[j].span):
-                        if j + s < width:
-                            texts[j + s] = texts[j]
-                    j += max(1, r[j].span)
+            j = 0
+            while j < len(r):  # a spanning header: \multicolumn leaves empty cells after its text
+                for s in range(1, r[j].span):
+                    if j + s < width:
+                        texts[j + s] = texts[j]
+                j += max(1, r[j].span)
             head.append(texts)
         keys = [" ".join(dict.fromkeys(h[j] for h in head if h[j])).strip() or f"column {j + 1}" for j in range(width)]
         return _dedupe(keys)
@@ -158,7 +161,7 @@ def _dedupe(keys: list[str]) -> list[str]:
     return out
 
 
-def read_cell(raw: str, line: int, defs: dict[str, tuple[int, str]] | None = None) -> Cell:
+def read_cell(raw: str, line: int, defs: Macros | None = None) -> Cell:
     r"""A cell: its text, its numbers, and the result it shows.
 
     >>> c = read_cell(r"\textbf{75.3}$\pm$0.2", 1); (c.value, c.spread, c.bold, c.decimals)
@@ -167,21 +170,27 @@ def read_cell(raw: str, line: int, defs: dict[str, tuple[int, str]] | None = Non
     (92.1, True, True)
     >>> [read_cell(s, 1).value for s in ["ResNet-50", "--", "125M", "28.4 (+1.2)", "89.3/82.1", ".93", "1,024"]]
     [None, None, None, 28.4, 89.3, 0.93, 1024.0]
+    >>> [read_cell(s, 1).value for s in ["2018-2019", "125m", r"75.3$^a$", r"\textminus 1.5", "N/A", r"75.3$^*$"]]
+    [None, None, 75.3, -1.5, None, 75.3]
     """
     expanded = raw if not defs else _expand_marks(raw, defs)
     text = plain(raw, defs)
     c = Cell(raw.strip(), text, line, bold=bool(BOLD.search(expanded)), underline=bool(UNDERLINE.search(expanded)))
     c.numbers = [float(n.replace("−", "-").replace(",", "")) for n in NUMBER.findall(text)]
-    m = re.match(r"\s*[(\[]?\s*([-−]?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+))", text)
+    m = re.match(r"\s*[(\[]?\s*([-−]\s?)?((?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+))", text)
     if not m:
         return c
+    if re.match(r"[-–—]\d", text[m.end() :]):
+        return c  # 2018-2019: a range, not a result
     rest = text[m.end() :].strip()
-    # only what decorates a result may follow: ± spread, (delta), %, marks, a second result after /
-    if rest and not re.match(r"(?:[(\[)\]±%*†‡§¶⋆∗/]|\+/-|\+|−|-\s*\d|[a-z]?\s*$|±)", rest):
+    # only what decorates a result may follow: ± spread, (delta), %, marks, a second result after /, a letter only
+    # when it is a superscript (a footnote mark: 75.3$^a$)
+    letter = bool(re.match(r"[A-Za-z]\s*$", rest)) and bool(re.search(r"\^|\\textsuperscript|\\tnote", raw))
+    if rest and not letter and not re.match(r"(?:[(\[)\]±%*†‡§¶⋆∗/]|\+/-|\+|−|-\s*\d|±)", rest):
         return c  # 125.0M, 50 epochs, 3B: not a result
     if re.match(r"[A-Za-z]{2,}", rest):
         return c
-    s = m.group(1).replace("−", "-").replace(",", "")
+    s = ("-" if m.group(1) else "") + m.group(2).replace(",", "")
     c.value = float(s)
     c.decimals = len(s.split(".")[1]) if "." in s else 0
     c.percent = rest.startswith("%")
@@ -191,7 +200,7 @@ def read_cell(raw: str, line: int, defs: dict[str, tuple[int, str]] | None = Non
     return c
 
 
-def _expand_marks(raw: str, defs: dict[str, tuple[int, str]]) -> str:
+def _expand_marks(raw: str, defs: Macros) -> str:
     """The cell with the paper's macros expanded, to see bold and underline behind \\best{} or \\sota{}."""
     from .text import expand
 
@@ -204,6 +213,11 @@ def _split(s: str, sep: str) -> list[tuple[str, int]]:
     while i < len(s):
         c = s[i]
         if c == "\\":
+            nest = NEST.match(s, i)
+            if nest:  # a tabular inside a cell: its & and \\ belong to it
+                depth += 1 if nest.group(1) == "begin" else -1
+                i = nest.end()
+                continue
             if sep == "\\\\" and depth == 0 and (s.startswith("\\\\", i) or s.startswith("\\tabularnewline", i)):
                 out.append((s[start:i], start))
                 i += 2 if s.startswith("\\\\", i) else len("\\tabularnewline")
@@ -226,30 +240,36 @@ def _split(s: str, sep: str) -> list[tuple[str, int]]:
     return out
 
 
-MULTICOLUMN = re.compile(r"\s*\\multicolumn\s*\{(\d+)\}\s*\{[^}]*\}\s*\{")
+NEST = re.compile(r"\\(begin|end)\{(?:tabular\*?|tabularx|tabulary|array|tblr)\}")
+MULTICOLUMN = re.compile(r"\s*\\multicolumn\s*\{(\d+)\}\s*\{")  # then the column spec, whose braces may nest: {@{}c@{}}
 MULTIROW = re.compile(r"\s*\\multirow\s*(?:\[[^\]]*\])?\s*\{(-?\d+)\}\s*(?:\[[^\]]*\])?\s*\{[^}]*\}\s*(?:\[[^\]]*\])?\s*\{")
 
 
-def _cells(row: str, offset: int, text: str, defs: dict[str, tuple[int, str]]) -> tuple[list[Cell], dict[int, int]]:
-    """The row's cells, and the \\multirow spans it starts: {column: rows below to fill}."""
+def _cells(row: str, offset: int, text: str, defs: Macros) -> tuple[list[Cell], dict[int, int]]:
+    """The row's cells, and the \\multirow spans it starts: {column: rows to fill, below (positive) or above}."""
     cells: list[Cell] = []
     spans: dict[int, int] = {}
     for raw, off in _split(row, "&"):
         span, down = 1, 0
         m = MULTICOLUMN.match(raw)
         if m:
-            span = max(1, min(int(m.group(1)), MAX_SPAN))
-            end = _matching(raw, m.end())
-            raw = raw[m.end() : end if end > 0 else len(raw)]
+            spec_end = _matching(raw, m.end())
+            body = re.match(r"\s*\{", raw[spec_end + 1 :]) if spec_end > 0 else None
+            if body:
+                span = max(1, min(int(m.group(1)), MAX_SPAN))
+                start_ = spec_end + 1 + body.end()
+                end = _matching(raw, start_)
+                raw = raw[start_ : end if end > 0 else len(raw)]
         m = MULTIROW.match(raw)
         if m:
-            down = min(abs(int(m.group(1))), MAX_ROWS) - 1
+            n = int(m.group(1))
+            down = (min(abs(n), MAX_ROWS) - 1) * (1 if n > 0 else -1)  # \multirow{-2}: the text is in the last row
             end = _matching(raw, m.end())
             raw = raw[m.end() : end if end > 0 else len(raw)]
         line = text.count("\n", 0, offset + off + len(raw) - len(raw.lstrip())) + 1
         c = read_cell(raw, line, defs)
         c.span = span
-        if down > 0 and c.text:
+        if down and c.text:
             spans[len(cells)] = down
         cells.append(c)
         cells.extend(Cell("", "", line) for _ in range(span - 1))
@@ -274,7 +294,8 @@ def _floats(text: str) -> list[_Float]:
         end = text.find(f"\\end{{{env}}}", m.end())
         if end < 0:
             continue
-        subs = [(a.start(), text.find("\\end{subtable}", a.end())) for a in re.finditer(r"\\begin\{subtable\}", text[m.start() : end])]
+        part = text[m.start() : end]
+        subs = [(a.start(), part.find("\\end{subtable}", a.end())) for a in re.finditer(r"\\begin\{subtable\}", part)]
         subs = [(m.start() + a, m.start() + b) for a, b in subs if b > 0]
         caps = []
         for c in re.finditer(r"\\caption(?:of\s*\{table\})?\s*(?:\[[^\]]*\])?\s*\{", text[m.start() : end]):
@@ -291,7 +312,18 @@ def _floats(text: str) -> list[_Float]:
         if len(caps) > 1 and len(labels) < len(caps):
             caps = [(pos, cap, lab if k < len(labels) else "") for k, (pos, cap, lab) in enumerate(caps)]
         out.append(_Float(m.start(), end, caps))
-    return out
+    # a table captioned with \captionof{table} outside a table float (in a minipage of a figure): numbered by LaTeX too
+    for c in re.finditer(r"\\captionof\s*\{table\}\s*(?:\[[^\]]*\])?\s*\{", text):
+        if any(f.start < c.start() < f.end for f in out):
+            continue
+        close = _matching(text, c.end())
+        cap = text[c.end() : close] if close > 0 else ""
+        begin = text.rfind("\\begin{minipage}", 0, c.start())
+        stop = text.find("\\end{minipage}", c.start())
+        lo, hi = (begin, stop) if begin >= 0 and stop > 0 and text.find("\\end{minipage}", begin) >= c.start() else (c.start(), c.end())
+        lab = re.search(r"\\label\{([^}]+)\}", text[c.start() : hi if hi > c.end() else c.end() + 200])
+        out.append(_Float(lo, hi, [(c.start(), cap, lab.group(1) if lab else "")]))
+    return sorted(out, key=lambda f: f.start)
 
 
 def _caption_of(f: _Float, tabulars: list[int], at: int) -> int | None:
@@ -304,21 +336,64 @@ def _caption_of(f: _Float, tabulars: list[int], at: int) -> int | None:
     return min(range(len(f.captions)), key=lambda k: abs(f.captions[k][0] - at))
 
 
-def find_tables(files: list[tuple[str, str]]) -> list[Table]:
-    """Every tabular of a paper, in reading order, with the number of the table it is in."""
-    defs: dict[str, tuple[int, str]] = {}
+def _env_end(text: str, i: int) -> int:
+    """Where the tabular whose body starts at `i` ends: its own \\end, past any tabular nested in it (-1 if none)."""
+    depth = 0
+    for m in NEST.finditer(text, i):
+        if m.group(1) == "begin":
+            depth += 1
+        elif depth == 0:
+            return m.start()
+        else:
+            depth -= 1
+    return -1
+
+
+def _numbers(
+    files: list[tuple[str, str]], floats: dict[str, list[_Float]], includes: dict[str, list[tuple[int, str]]] | None
+) -> dict[tuple[str, int], int]:
+    """The first table number of each float, in the paper's reading order: a file's floats, with an \\input file's
+    floats where it is included."""
+    order: list[tuple[str, int]] = []
+    seen: set[str] = set()
+
+    def visit(file: str) -> None:
+        if file in seen or file not in floats:
+            return
+        seen.add(file)
+        events: list[tuple[int, str, int | str]] = [(f.start, "float", k) for k, f in enumerate(floats[file])]
+        events += [(pos, "input", child) for pos, child in (includes or {}).get(file, [])]
+        for _, kind, what in sorted(events, key=lambda e: e[0]):
+            if kind == "float":
+                order.append((file, int(what)))
+            else:
+                visit(str(what))
+
+    for file, _ in files:
+        visit(file)
+    out, n = {}, 0
+    for file, k in order:
+        out[(file, k)] = n + 1
+        n += len(floats[file][k].captions)
+    return out
+
+
+def find_tables(files: list[tuple[str, str]], includes: dict[str, list[tuple[int, str]]] | None = None) -> list[Table]:
+    """Every tabular of a paper, in reading order, with the number of the table it is in. `includes` says where each
+    file \\inputs another ({file: [(position, included file)]}); without it, files are numbered in the order given."""
+    defs: Macros = {}
     for _, text in files:
         defs.update({k: v for k, v in macros(text).items() if k not in defs})
     tables: list[Table] = []
-    number = 0
+    all_floats = {file: _floats(text) for file, text in files}
+    first = _numbers(files, all_floats, includes)
     for file, text in files:
-        floats = _floats(text)
-        first_number: list[int] = []
-        for f in floats:
-            first_number.append(number + 1)
-            number += len(f.captions)
+        floats = all_floats[file]
         starts = [m.start() for m in ENV.finditer(text)]
+        done: list[tuple[int, int]] = []
         for m in ENV.finditer(text):
+            if any(a < m.start() < b for a, b in done):
+                continue  # a tabular inside a cell of another: part of that cell
             env = m.group(1)
             i = m.end()
             for _ in range(2 if env in ("tabular*", "tabularx", "tabulary") else 1):  # a width, then the column spec
@@ -327,16 +402,17 @@ def find_tables(files: list[tuple[str, str]]) -> list[Table]:
                     break
                 close_spec = _matching(text, i + mm.end())
                 i = close_spec + 1 if close_spec > 0 else i
-            close = text.find(f"\\end{{{env}}}", i)
+            close = _env_end(text, i)
             if close < 0:
                 continue
-            fi = next((k for k, f in enumerate(floats) if f.start < m.start() < f.end), None)
+            done.append((m.start(), close))
+            fi = next((k for k, f in enumerate(floats) if f.start <= m.start() <= f.end), None)
             num, label, caption = None, "", ""
             if fi is not None:
                 f = floats[fi]
                 ci = _caption_of(f, [s for s in starts if f.start < s < f.end], m.start())
                 if ci is not None:
-                    num = first_number[fi] + ci
+                    num = first[(file, fi)] + ci
                     caption, label = plain(f.captions[ci][1], defs), f.captions[ci][2]
             t = Table(file, text.count("\n", 0, m.start()) + 1, num, label, caption)
             _fill(t, text, i, close, defs)
@@ -345,17 +421,17 @@ def find_tables(files: list[tuple[str, str]]) -> list[Table]:
     return tables
 
 
-def _rule_macros(defs: dict[str, tuple[int, str]]) -> tuple[re.Pattern[str] | None, set[str]]:
+def _rule_macros(defs: Macros) -> tuple[re.Pattern[str] | None, set[str]]:
     r"""The paper's macros that draw a rule (\thickhline = \noalign{...}\hline...): a pattern for their uses, and
     which of them are full-width rules."""
-    names = {n for n, (k, body) in defs.items() if k == 0 and (RULE.search(body) or BRACED.search(body)) and not re.search(r"&|\\\\", body)}
+    names = {n for n, (k, body, _) in defs.items() if k == 0 and (RULE.search(body) or BRACED.search(body)) and not re.search(r"&|\\\\", body)}
     if not names:
         return None, set()
     full = {n for n in names if FULL_RULE.search(defs[n][1])}
     return re.compile(r"\\(" + "|".join(sorted(map(re.escape, names), key=len, reverse=True)) + r")(?![A-Za-z@])(?:\s*\{\})?"), full
 
 
-def _fill(t: Table, text: str, start: int, close: int, defs: dict[str, tuple[int, str]]) -> None:
+def _fill(t: Table, text: str, start: int, close: int, defs: Macros) -> None:
     body = text[start:close]
     first_rule_row = None
     rule_use, full_rules = _rule_macros(defs)
@@ -371,6 +447,10 @@ def _fill(t: Table, text: str, start: int, close: int, defs: dict[str, tuple[int
         if not clean.strip():
             continue
         cells, spans = _cells(clean, start + off, text, defs)
+        for j, down in [(j, d) for j, d in spans.items() if d < 0]:  # \multirow{-n}: the rows above get the text
+            for k in range(1, -down + 1):
+                if len(t.rows) >= k and j < len(t.rows[-k]) and not t.rows[-k][j].text:
+                    t.rows[-k][j].text, t.rows[-k][j].filled = cells[j].text, True
         for j, (txt, left) in list(pending.items()):
             if j < len(cells) and not cells[j].text:
                 cells[j].text, cells[j].filled = txt, True
@@ -378,8 +458,10 @@ def _fill(t: Table, text: str, start: int, close: int, defs: dict[str, tuple[int
             if left - 1 <= 0:
                 del pending[j]
         for j, down in spans.items():
-            pending[j] = (cells[j].text, down)
+            if down > 0:
+                pending[j] = (cells[j].text, down)
         t.rows.append(cells)
+    _years_are_not_results(t)
     if first_rule_row == len(t.rows):
         first_rule_row = None  # the rule under the last row closes the table; it is not the line under a header
     # The header: the rows above the first full rule when it comes early (a header may hold numbers: sizes, shots);
@@ -389,3 +471,14 @@ def _fill(t: Table, text: str, start: int, close: int, defs: dict[str, tuple[int
         t.header_rows = first_rule_row
     else:
         t.header_rows = leading if leading < len(t.rows) else 0
+
+
+def _years_are_not_results(t: Table) -> None:
+    """A column of years (BERT & 2019 & 80.1) describes the rows; it is not a result."""
+    width = max((len(r) for r in t.rows), default=0)
+    for j in range(width):
+        vals = [r[j].value for r in t.rows if j < len(r) and r[j].value is not None]
+        if len(vals) >= 2 and all(v == int(v) and 1900 <= v <= 2100 for v in vals if v is not None):
+            for r in t.rows:
+                if j < len(r):
+                    r[j].value = None

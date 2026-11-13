@@ -25,7 +25,7 @@ $ table-trace compare 1512.03385 2012.12877 2201.03545 1905.11946 --row ResNet-5
   ...
 ```
 
-同一个模型，四篇论文：ImageNet top-1 分别是 76.0（EfficientNet）、76.13 和换了新训练方法后的 78.82 ± 0.07（ConvNeXt）、76.2（DeiT），ResNet 论文自己报的是错误率 20.74（即准确率 79.26，单模型，用它自己的测试方式）。每个数字都指向它所在的表和行，差异从哪来（训练方法、测试方式、指标）一眼就能查到。
+上面是输出 14 行中的 5 行（此处省略了标题）。同一个模型，四篇论文：ImageNet top-1 分别是 76.0（EfficientNet）、76.13 和换了新训练方法后的 78.82 ± 0.07（ConvNeXt）、76.2（DeiT），ResNet 论文自己报的是错误率 20.74（即准确率 79.26，单模型，用它自己的测试方式）。每个数字都指向它所在的表和行，差异从哪来（训练方法、测试方式、指标）一眼就能查到。
 
 ## 为什么做
 
@@ -39,7 +39,7 @@ $ table-trace compare 1512.03385 2012.12877 2201.03545 1905.11946 --row ResNet-5
 - **越高越好还是越低越好**：根据表头里的箭头或指标名判断（准确率、BLEU、top-1 越高越好，错误率、FID、延迟越低越好）。所以 `compare` 遇到错误率和准确率放在一起时会提醒。
 - **来源**：arXiv 编号或链接（源码下载到临时目录，读完即删，两篇论文之间间隔三秒）、LaTeX 项目文件夹或 .tex 文件；会跟随 `\input` 和 `\include`，忽略注释和 `\iffalse` 里的内容。
 
-在 11 篇知名论文上试过（ResNet、ViT、BERT、T5、LoRA、DeiT、ConvNeXt、Swin、EfficientNet、CLIP、LLaMA）：约 13,500 个单元格，单元格文字里没有残留的 LaTeX；ResNet 的 14 张表的表号和 label 与论文一致。
+在 25 篇知名论文上试过（ResNet、ViT、BERT、T5、LoRA、DeiT、ConvNeXt、Swin、EfficientNet、CLIP、LLaMA、Transformer、GPT-3、Llama 2、Mistral、DPO、DDPM、Stable Diffusion、MAE、SimCLR、RoBERTa、FlashAttention、GAN、YOLO，以及没有表格的 Adam）：约 28,300 个单元格，单元格文字里没有残留的 LaTeX；ResNet 的 14 张表的表号和 label 与论文一致。
 
 ## 使用
 

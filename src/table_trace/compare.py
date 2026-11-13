@@ -24,16 +24,19 @@ def pattern(name: str, strict: bool = True) -> re.Pattern[str]:
     [True, True, True, False, False, False, False]
     >>> bool(pattern("ViT-B/16").search("r50x1+vit-b/16")), bool(pattern("ViT-B/16").search("vit-b/16 (ours)"))
     (False, True)
+    >>> [bool(pattern("GPT-3").search(s)) for s in ["gpt-3.5", "gpt-3 175b", "gpt-3."]], bool(pattern("ViT-B/16").search("vit-b/16/384"))
+    ([False, True, True], False)
     >>> bool(pattern("ImageNet", strict=False).search("imagenet-1k top-1")), bool(pattern("ImageNet").search("imagenet-1k"))
     (True, False)
     """
-    tokens = re.findall(r"[a-z]+|\d+(?:\.\d+)?", name.lower())
+    tokens = re.findall(r"[a-z]+|\d+(?:\.\d+)?|\+\+|#", name.lower())  # C++ and C# keep their marks
     if not tokens:
         raise ValueError(f"{name!r}: no words or numbers to look for")
     # not joined by a hyphen or a plus to a longer name either: SE-ResNet-50, ResNet-50-D and R50x1+ViT-B/16 are other models
     body = r"[\W_]*".join(re.escape(t) for t in tokens)
     if strict:
-        return re.compile(r"(?<![a-z0-9])(?<![a-z0-9][-+])" + body + r"(?![-+]?[a-z0-9])")
+        # nor followed by .5 or /384: GPT-3.5 and ViT-B/16/384 are other models too
+        return re.compile(r"(?<![a-z0-9])(?<![a-z0-9][-+])" + body + r"(?![-+]?[a-z0-9])(?![./]\d)")
     return re.compile(r"(?<![a-z0-9])" + body + r"(?![a-z0-9])")
 
 
@@ -59,7 +62,7 @@ def find(paper: Paper, rows: list[re.Pattern[str]], cols: list[re.Pattern[str]],
     """The results in `paper` whose row matches one of `rows` and whose column header matches one of `cols`, in
     tables whose caption (or label) matches one of `captions` when they are given."""
     out = []
-    for t in tables if tables is not None else find_tables(paper.files):
+    for t in tables if tables is not None else find_tables(paper.files, paper.includes):
         if captions and not any(p.search(f"{t.caption} {t.label}".lower()) for p in captions):
             continue
         keys = t.columns()

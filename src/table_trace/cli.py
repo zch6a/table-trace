@@ -17,6 +17,7 @@ import argparse
 import csv
 import io
 import json
+import re
 import sys
 from dataclasses import asdict
 from typing import Any
@@ -66,6 +67,11 @@ def _markdown(paper: Paper, tables: list[Table]) -> str:
     return "\n".join(out)
 
 
+def _cell(s: str) -> str:
+    """Text as a CSV field a spreadsheet will not run as a formula (=, +, @, or - before a non-number)."""
+    return "'" + s if s[:1] in ("=", "+", "@") or (s[:1] == "-" and not re.match(r"-[\d.]", s)) else s
+
+
 def _csv(paper: Paper, tables: list[Table], w: Any) -> None:
     for t in tables:
         cols = t.columns()
@@ -73,7 +79,7 @@ def _csv(paper: Paper, tables: list[Table], w: Any) -> None:
             for j, c in enumerate(t.rows[i]):
                 if j < t.row_start(i) or not c.text:
                     continue
-                w.writerow([paper.name, t.name, t.caption[:200], key, cols[j] if j < len(cols) else "", c.text,
+                w.writerow([paper.name, t.name, _cell(t.caption[:200]), _cell(key), _cell(cols[j] if j < len(cols) else ""), _cell(c.text),
                             "" if c.value is None else c.value, "" if c.spread is None else c.spread, int(c.bold), int(c.underline), t.file, c.line])  # fmt: skip
 
 
@@ -103,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("table-trace: stopped", file=sys.stderr)
         return 130
+    except MemoryError:
+        print("table-trace: out of memory reading a table (a macro that grows without end?)", file=sys.stderr)
+        return 2
 
 
 def _extract(args: argparse.Namespace) -> int:
@@ -110,10 +119,17 @@ def _extract(args: argparse.Namespace) -> int:
     w = csv.writer(buf, lineterminator="\n")
     if args.format == "csv":
         w.writerow(["paper", "table", "caption", "row", "column", "text", "value", "spread", "bold", "underline", "file", "line"])
-    found_any = False
+    found_any, failed = False, 0
     for src in args.papers:
-        paper = load(src)
-        tables = find_tables(paper.files)
+        try:
+            paper = load(src)
+        except SourceError as err:
+            if len(args.papers) == 1:
+                raise
+            print(f"table-trace: {err}", file=sys.stderr)
+            failed += 1
+            continue
+        tables = find_tables(paper.files, paper.includes)
         if args.table is not None:
             tables = [t for t in tables if t.number == args.table]
         found_any |= bool(tables)
@@ -127,6 +143,8 @@ def _extract(args: argparse.Namespace) -> int:
         print(json.dumps(docs[0] if len(docs) == 1 else docs, indent=1, ensure_ascii=False))
     elif args.format == "csv":
         sys.stdout.write(buf.getvalue())
+    if failed:
+        return 2
     if not found_any:
         print("table-trace: no tables found" + (f" numbered {args.table}" if args.table is not None else ""), file=sys.stderr)
         return 1
@@ -138,9 +156,16 @@ def _compare(args: argparse.Namespace) -> int:
     cols = [pattern(c, strict=False) for c in args.col]
     captions = [pattern(c, strict=False) for c in args.caption or []]
     found: list[Found] = []
-    missing = []
+    missing, failed = [], 0
     for src in args.papers:
-        paper = load(src)
+        try:
+            paper = load(src)
+        except SourceError as err:
+            if len(args.papers) == 1:
+                raise
+            print(f"table-trace: {err}", file=sys.stderr)
+            failed += 1
+            continue
         hits = find(paper, rows, cols, captions)
         found += hits
         if not hits:
@@ -149,7 +174,7 @@ def _compare(args: argparse.Namespace) -> int:
         lo_hi = spread_of(found)
         print(json.dumps({"row": args.row, "column": args.col, "found": [asdict(f) for f in found], "papers_without": missing,
                           "lowest": lo_hi[0] if lo_hi else None, "highest": lo_hi[1] if lo_hi else None}, indent=1, ensure_ascii=False))  # fmt: skip
-        return 0 if found else 1
+        return 2 if failed else 0 if found else 1
     for f in found:
         sp = f" ± {f.spread:g}" if f.spread is not None else ""
         bold = " (bold)" if f.bold else ""
@@ -170,7 +195,7 @@ def _compare(args: argparse.Namespace) -> int:
               + ": try other spellings (--row may be given several times) or the metric's name in --col", file=sys.stderr)  # fmt: skip
     elif missing:
         print(f"no match in: {', '.join(missing)}", file=sys.stderr)
-    return 0 if found else 1
+    return 2 if failed else 0 if found else 1
 
 
 if __name__ == "__main__":

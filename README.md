@@ -27,7 +27,7 @@ $ table-trace compare 1512.03385 2012.12877 2201.03545 1905.11946 --row ResNet-5
   ...
 ```
 
-One model, four papers: ImageNet top-1 of 76.0 (EfficientNet), 76.13 and, with a newer training recipe, 78.82 ± 0.07
+Five of its fourteen lines (captions left out here). One model, four papers: ImageNet top-1 of 76.0 (EfficientNet), 76.13 and, with a newer training recipe, 78.82 ± 0.07
 (ConvNeXt), 76.2 (DeiT), and an error of 20.74 in the ResNet paper itself (79.26 accuracy, single model, its own
 testing). Every number points to the table and the line it comes from, so the reason for each difference (the
 recipe, the testing, the metric) is one look away.
@@ -57,8 +57,10 @@ and keeps the cell.
   between papers), a LaTeX project folder, or a .tex file; `\input` and `\include` followed, comments and `\iffalse`
   left out.
 
-Tried on eleven well-known papers (ResNet, ViT, BERT, T5, LoRA, DeiT, ConvNeXt, Swin, EfficientNet, CLIP, LLaMA):
-about 13,500 cells, no LaTeX left in a cell's text, ResNet's 14 tables numbered and labelled as in the paper.
+Tried on 25 well-known papers (ResNet, ViT, BERT, T5, LoRA, DeiT, ConvNeXt, Swin, EfficientNet, CLIP, LLaMA, the
+Transformer, GPT-3, Llama 2, Mistral, DPO, DDPM, Stable Diffusion, MAE, SimCLR, RoBERTa, FlashAttention, GAN, YOLO, and
+Adam, which has no table): about 28,300 cells, no LaTeX left in a cell's text, ResNet's 14 tables numbered and labelled
+as in the paper.
 
 ## Use it
 

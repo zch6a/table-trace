@@ -7,10 +7,11 @@ from __future__ import annotations
 import re
 
 MACRO_DEF = re.compile(
-    r"\\(?:re)?newcommand\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*(?:\[[^\]]*\])?\s*\{"
-    r"|\\(?:DeclareRobustCommand|providecommand)\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*\{"
+    r"\\(?:re)?newcommand\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*(?:\[([^\]]*)\])?\s*\{"
+    r"|\\(?:DeclareRobustCommand|providecommand)\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*(?:\[([^\]]*)\])?\s*\{"
     r"|\\(?:g|e|x)?def\s*\\([A-Za-z@]+)\s*((?:#\d)*)\s*\{"
 )
+Macros = dict[str, tuple[int, str, str | None]]  # name -> (arguments, body, the first argument's default when optional)
 MAX_EXPANSION = 20_000  # characters a cell may grow to while macros expand
 SYMBOLS = {"pm": "±", "mp": "∓", "times": "×", "dagger": "†", "ddagger": "‡", "dag": "†", "ddag": "‡", "star": "⋆", "ast": "∗",
            "uparrow": "↑", "downarrow": "↓", "Uparrow": "⇑", "Downarrow": "⇓", "rightarrow": "→", "to": "→", "leftarrow": "←",
@@ -19,7 +20,8 @@ SYMBOLS = {"pm": "±", "mp": "∓", "times": "×", "dagger": "†", "ddagger": "
            "$": "$", "{": "{", "}": "}", "textasciitilde": "~", "textbar": "|", "degree": "°", "alpha": "α", "beta": "β",
            "gamma": "γ", "delta": "δ", "Delta": "Δ", "epsilon": "ε", "lambda": "λ", "mu": "μ", "sigma": "σ", "tau": "τ",
            "theta": "θ", "pi": "π", "phi": "φ", "omega": "ω", "ldots": "…", "dots": "…", "cdots": "⋯", "textless": "<",
-           "textgreater": ">", "textpm": "±", "texttimes": "×", "textdagger": "†", "minus": "−"}  # fmt: skip
+           "textgreater": ">", "textpm": "±", "texttimes": "×", "textdagger": "†", "minus": "−", "textminus": "−",
+           "textendash": "–", "textemdash": "—"}  # fmt: skip
 KEEP_ARG = ("textbf|textit|textsl|textsc|texttt|textrm|textsf|textup|textnormal|emph|underline|uline|ul|underbar|mathbf|mathrm|"
             "mathit|mathsf|mathtt|mathcal|mathbb|boldsymbol|bm|pmb|text|mbox|hbox|makecell|shortstack|textmd|mathnormal|"
             "operatorname|ensuremath|tablestyle|bfseries|fbox|framebox|smash|raisebox|resizebox|scalebox|adjustbox|tnote|"
@@ -46,25 +48,41 @@ def _matching(s: str, start: int) -> int:
     return -1
 
 
-def macros(text: str) -> dict[str, tuple[int, str]]:
-    r"""The macros a document defines: name -> (number of arguments, body).
+def macros(text: str) -> Macros:
+    r"""The macros a document defines: name -> (number of arguments, body, the optional first argument's default).
 
-    >>> macros(r"\newcommand{\ours}{\textsc{Ours}} \def\R{\mathbb{R}} \newcommand{\best}[1]{\textbf{#1}}")
-    {'ours': (0, '\\textsc{Ours}'), 'R': (0, '\\mathbb{R}'), 'best': (1, '\\textbf{#1}')}
+    >>> macros(r"\newcommand{\ours}{\textsc{Ours}} \def\R{\mathbb{R}} \newcommand{\best}[1]{\textbf{#1}} \newcommand{\res}[2][0.0]{#2 (#1)}")
+    {'ours': (0, '\\textsc{Ours}', None), 'R': (0, '\\mathbb{R}', None), 'best': (1, '\\textbf{#1}', None), 'res': (2, '#2 (#1)', '0.0')}
     """
-    out: dict[str, tuple[int, str]] = {}
+    out: Macros = {}
     for m in MACRO_DEF.finditer(text):
-        name = m.group(1) or m.group(3) or m.group(5)
-        n = int(m.group(2) or m.group(4) or 0) if not m.group(5) else len(re.findall(r"#\d", m.group(6) or ""))
+        name = m.group(1) or m.group(4) or m.group(7)
+        if m.group(7):
+            n, default = len(re.findall(r"#\d", m.group(8) or "")), None
+        else:
+            n, default = int(m.group(2) or m.group(5) or 0), m.group(3) if m.group(1) else m.group(6)
         end = _matching(text, m.end())
         if end < 0 or name in ("begin", "end", "input", "include", "def", "newcommand"):
             continue
-        out.setdefault(name, (n, text[m.end() : end]))  # the first definition (a \renewcommand later is rare in tables)
+        out.setdefault(name, (n, text[m.end() : end], default if n else None))  # the first definition
     return out
 
 
-def _args(s: str, i: int, n: int) -> tuple[list[str], int] | None:
+def _args(s: str, i: int, n: int, default: str | None = None) -> tuple[list[str], int] | None:
     args = []
+    if default is not None and n:  # an optional first argument: [given], else the default
+        j = i
+        while j < len(s) and s[j] in " \t\n":
+            j += 1
+        if j < len(s) and s[j] == "[":
+            close = s.find("]", j)
+            if close < 0:
+                return None
+            args.append(s[j + 1 : close])
+            i = close + 1
+        else:
+            args.append(default)
+        n -= 1
     for _ in range(n):
         while i < len(s) and s[i] in " \t\n":
             i += 1
@@ -82,42 +100,50 @@ def _args(s: str, i: int, n: int) -> tuple[list[str], int] | None:
     return args, i
 
 
-def expand(s: str, defs: dict[str, tuple[int, str]]) -> str:
-    r"""The document's macros expanded in `s` (five rounds at most, and no more than MAX_EXPANSION characters).
+def expand(s: str, defs: Macros) -> str:
+    r"""The document's macros expanded in `s` (five rounds at most, and no more than MAX_EXPANSION characters, counted
+    as it grows: a macro that doubles itself stops there, not after allocating gigabytes).
 
-    >>> expand(r"\ours{} gets \best{75.3}", {"ours": (0, r"\textsc{Ours}"), "best": (1, r"\textbf{#1}")})
+    >>> expand(r"\ours{} gets \best{75.3}", {"ours": (0, r"\textsc{Ours}", None), "best": (1, r"\textbf{#1}", None)})
     '\\textsc{Ours}{} gets \\textbf{75.3}'
+    >>> expand(r"\res{75.3} & \res[0.2]{76.1}", {"res": (2, "#2 (#1)", "0.0")})
+    '75.3 (0.0) & 76.1 (0.2)'
+    >>> len(expand(r"\a", {"a": (0, r"\b" * 9000, None), "b": (0, "x" * 10000, None)})) <= MAX_EXPANSION
+    True
     """
     if not defs or "\\" not in s:
         return s
     pattern = re.compile(r"\\(" + "|".join(sorted(map(re.escape, defs), key=len, reverse=True)) + r")(?![A-Za-z@])")
     for _ in range(5):
-        out, i, changed = [], 0, False
+        out, i, changed, size = [], 0, False, 0
         for m in pattern.finditer(s):
             if m.start() < i:
                 continue
-            n, body = defs[m.group(1)]
-            got = _args(s, m.end(), n) if n else ([], m.end())
+            n, body, default = defs[m.group(1)]
+            got = _args(s, m.end(), n, default) if n else ([], m.end())
             if got is None:
                 continue
             args, j = got
-            for k, a in enumerate(args, 1):
-                body = body.replace(f"#{k}", a)
+            # every #k at once: an argument holding "#2" is not filled in again
+            body = re.sub(r"#(\d)", lambda a: args[int(a.group(1)) - 1] if 0 < int(a.group(1)) <= len(args) else "", body)
             out += [s[i : m.start()], body]
+            size += m.start() - i + len(body)
             i, changed = j, True
+            if size > MAX_EXPANSION:
+                break
         out.append(s[i:])
-        s = "".join(out)
+        s = "".join(out)[: MAX_EXPANSION + 1]
         if not changed or len(s) > MAX_EXPANSION:
             break
     return s[:MAX_EXPANSION]
 
 
-def plain(s: str, defs: dict[str, tuple[int, str]] | None = None) -> str:
+def plain(s: str, defs: Macros | None = None) -> str:
     r"""A cell's text as printed.
 
     >>> plain(r"\textbf{75.3}$_{\pm 0.2}$"), plain(r"ResNet-50~\cite{he2016}"), plain(r"\makecell{Top-1\\Acc. (\%)}")
     ('75.3±0.2', 'ResNet-50', 'Top-1 Acc. (%)')
-    >>> plain(r"\ours{}$^\dagger$", {"ours": (0, r"\textsc{Ours}")}), plain(r"{\bf 81.2} \textcolor{red}{(+1.1)}"), plain("$\\uparrow$ BLEU")
+    >>> plain(r"\ours{}$^\dagger$", {"ours": (0, r"\textsc{Ours}", None)}), plain(r"{\bf 81.2} \textcolor{red}{(+1.1)}"), plain("$\\uparrow$ BLEU")
     ('Ours†', '81.2 (+1.1)', '↑ BLEU')
     >>> plain(r"\texttt{{\color{gray}Buddhists are} \textbf{divided}}")
     'Buddhists are divided'
@@ -129,6 +155,9 @@ def plain(s: str, defs: dict[str, tuple[int, str]] | None = None) -> str:
     held = {"\\_": "\x01", "\\$": "\x02", "\\{": "\x03", "\\}": "\x04", "\\#": "\x05", "\\%": "\x06", "\\&": "\x07"}
     for k, v in held.items():
         s = s.replace(k, v)
+    # a tabular inside the cell: its lines and columns as spaces
+    s = re.sub(r"\\begin\{(?:tabular|array)\*?\}\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\end\{(?:tabular|array)\*?\}", " ", s)
+    s = s.replace("&", " ")
     s = re.sub(r"\\\\(?:\[[^\]]*\])?", " ", s)  # line breaks inside a cell (\makecell, \shortstack)
     s = re.sub(r"\\textcolor\s*(?:\[[^\]]*\])?\s*\{[^}]*\}", "", s)  # the colour, not the text after it
     for _ in range(4):

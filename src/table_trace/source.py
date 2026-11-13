@@ -136,15 +136,23 @@ def strip_comments(text: str) -> str:
     return re.sub(r"(?<!\\)((?:\\\\)*)%[^\n]*", r"\1", text)
 
 
+PRIMITIVE_IFS = {"if", "ifx", "ifnum", "ifdim", "ifcase", "ifcat", "ifodd", "ifvmode", "ifhmode", "ifmmode", "ifinner", "ifvoid",
+                 "ifhbox", "ifvbox", "ifeof", "iftrue", "iffalse", "ifdefined", "ifcsname", "iffontchar", "ifincsname"}  # fmt: skip
+
+
 def strip_dead(text: str) -> str:
     r"""What never reaches the PDF blanked out, line breaks kept: \iffalse ... \fi and comment environments.
 
     >>> strip_dead("a \\iffalse b \\ifx c\\fi d \\fi e") == "a" + " " * 28 + "e"
     True
+    >>> strip_dead("k \\iffalse $a \\iff b$ \\fi keep").endswith("keep")
+    True
     """
     blank = lambda s: re.sub(r"[^\n]", " ", s)  # noqa: E731
     text = re.sub(r"\\begin\{comment\}.*?\\end\{comment\}", lambda m: blank(m.group(0)), text, flags=re.S)
     out, i = [], 0
+    # the conditionals that need a \\fi: TeX's own and those \\newif declares (not \\iff, the maths symbol)
+    known = PRIMITIVE_IFS | set(re.findall(r"\\newif\s*\\(if[A-Za-z@]+)", text))
     for m in re.finditer(r"\\iffalse\b", text):
         if m.start() < i:
             continue
@@ -152,8 +160,10 @@ def strip_dead(text: str) -> str:
         for t in re.finditer(r"\\(if[a-zA-Z@]*|fi)\b", text[m.end() :]):
             if t.group(1) == "fi":
                 depth -= 1
-            elif t.group(1) not in ("ifthenelse", "iftoggle"):
+            elif t.group(1) in known:
                 depth += 1
+            else:
+                continue
             if depth == 0:
                 j = m.end() + t.end()
                 break
@@ -210,6 +220,7 @@ class Paper:
     name: str  # the arXiv id, or the folder or file given
     files: list[tuple[str, str]] = field(default_factory=list)
     url: str = ""  # the paper on arXiv
+    includes: dict[str, list[tuple[int, str]]] = field(default_factory=dict)  # file -> [(where, the file it \\inputs)]
 
 
 def read_project(main: Path, name: str = "") -> Paper:
@@ -224,9 +235,11 @@ def read_project(main: Path, name: str = "") -> Paper:
         seen.add(path)
         text = strip_dead(strip_comments(read_text(path)))
         paper.files.append((path.relative_to(root).as_posix(), text))
+        rel = path.relative_to(root).as_posix()
         for m in INPUT.finditer(text):
             p = _resolve(root, path.parent, m.group(1) or (m.group(2) or "") + "/" + m.group(3))
             if p is not None:
+                paper.includes.setdefault(rel, []).append((m.start(), p.relative_to(root).as_posix()))
                 visit(p, depth + 1)
 
     visit(main, 0)
