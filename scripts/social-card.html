@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- The repository's social preview (1280×640): docs/social-preview.png, rendered from this page with headless Chrome
+     at 1280×640. The numbers are table-trace's output for ResNet-50 on ImageNet (README). -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body { background: radial-gradient(1100px 700px at 12% 8%, #1a2440 0%, #10141b 55%, #0b0d11 100%); color: #e6edf3;
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif; display: grid; grid-template-columns: 450px 1fr; gap: 40px;
+    padding: 0 56px 0 70px; box-sizing: border-box; align-items: center; }
+  h1 { font-size: 62px; margin: 0 0 16px; letter-spacing: -1.5px; }
+  h1 span { color: #7c9bff; }
+  .tag { font-size: 30px; line-height: 1.22; margin: 0 0 22px; font-weight: 600; }
+  .sub { font-size: 18px; line-height: 1.5; color: #b1bac4; margin: 0 0 26px; }
+  .pills { display: flex; gap: 9px; flex-wrap: wrap; }
+  .pills span { font-size: 14.5px; border: 1px solid #30363d; background: #161b22; border-radius: 999px; padding: 6px 12px; color: #c9d1d9; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 14px; padding: 24px 26px; box-shadow: 0 26px 70px rgba(0,0,0,.5);
+    font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; }
+  .cmd { color: #8b949e; font-size: 14.5px; margin-bottom: 16px; }
+  .cmd b { color: #7ee787; font-weight: 500; }
+  .row { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: baseline; padding: 9px 0; border-top: 1px solid #21262d; }
+  .v { font-size: 26px; font-weight: 600; color: #e6edf3; text-align: right; }
+  .v small { font-size: 15px; color: #8b949e; font-weight: 400; }
+  .who { font-size: 15px; color: #c9d1d9; }
+  .who i { font-style: normal; color: #7c9bff; }
+  .where { display: block; font-size: 13px; color: #8b949e; margin-top: 2px; }
+  .err .v { color: #f0a35e; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>table-<span>trace</span></h1>
+    <p class="tag">Every number in a paper's tables, traced to its cell.</p>
+    <p class="sub">Read from the LaTeX source the authors wrote: text, result, ± spread, bold, file and line. And what papers report for the same model, side by side.</p>
+    <div class="pills"><span>arXiv or local LaTeX</span><span>No dependencies</span><span>CLI + agent skill</span></div>
+  </div>
+  <div class="card">
+    <div class="cmd">$ table-trace compare … <b>--row ResNet-50 --col top-1</b></div>
+    <div class="row err"><div class="v">20.74 <small>err</small></div><div class="who"><i>ResNet</i> · Table 4 · top-1 err.<span class="where">residual_v1_arxiv_release.tex:379 · lower is better</span></div></div>
+    <div class="row"><div class="v">76.0</div><div class="who"><i>EfficientNet</i> · Table 2 · Top-1 Acc.<span class="where">arxiv-stripped.tex:307</span></div></div>
+    <div class="row"><div class="v">76.13</div><div class="who"><i>ConvNeXt</i> · Table 10 · ResNet-50 (PyTorch)<span class="where">main.tex:809</span></div></div>
+    <div class="row"><div class="v">76.2</div><div class="who"><i>DeiT</i> · Table 5 · ImNet top-1<span class="where">experiments.tex:197</span></div></div>
+    <div class="row"><div class="v">78.82 <small>±0.07</small></div><div class="who"><i>ConvNeXt</i> · Table 10 · enhanced recipe<span class="where">main.tex:811</span></div></div>
+  </div>
+</body>
+</html>

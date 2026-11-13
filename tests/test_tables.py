@@ -167,3 +167,34 @@ def test_two_tables_side_by_side_in_one_float() -> None:
     assert (single.number, single.label, single.caption) == (1, "tab:single", "Single models.")
     assert (ensemble.number, ensemble.label, ensemble.caption) == (2, "tab:ensemble", "Ensembles.")
     assert after.number == 3
+
+
+def test_layout_tabulars_and_text_tables() -> None:
+    tex = r"""\begin{figure}\begin{tabular}{ll}\toprule \includegraphics{a.png} & \includegraphics{b.png} \\ \bottomrule\end{tabular}\caption{Plots}\end{figure}
+\begin{table}\caption{Prompts}\begin{tabular}{l}\toprule Context \\ \midrule The cat sat. \\ It was warm. \\ \bottomrule\end{tabular}\end{table}
+\begin{table}\caption{Words only}\begin{tabular}{ll} Task & Prompt \\ QA & Answer it. \\ NLI & Does it follow? \\ \bottomrule\end{tabular}\end{table}"""
+    prompts, words = tables_of(tex)  # the figure's tabular of images is not a table
+    assert prompts.header_rows == 1 and [k for _, k in prompts.body()] == ["The cat sat.", "It was warm."]
+    assert words.header_rows == 0  # no rule under a header, no results: the closing rule does not make all rows a header
+    assert len(words.body()) == 3
+
+
+def test_odd_sources(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    snippets = tmp_path / "tables"
+    snippets.mkdir()
+    (snippets / "b.tex").write_text(
+        r"\begin{table}\caption{B}\begin{tabular}{lc} M & A \\ \hline x & 2.0 \\ \end{tabular}\end{table}", encoding="utf-8"
+    )
+    (snippets / "a.tex").write_text(
+        r"\begin{table}\caption{A}\begin{tabular}{lc} M & A \\ \hline x & 1.0 \\ \end{tabular}\end{table}", encoding="utf-8"
+    )
+    assert cli.main(["extract", str(snippets), "--format", "csv"]) == 0  # no main file: every .tex file, in name order
+    out = capsys.readouterr().out
+    assert out.index(",1.0,") < out.index(",2.0,")
+    assert cli.main(["extract", str(tmp_path / "nope.tex")]) == 2
+    assert "no such file or folder" in capsys.readouterr().err
+    assert cli.main(["extract", str(tmp_path / "empty")]) == 2
+    assert cli.main(["compare", str(FIXTURE), "--row", "BERT", "--col", "Top-1"]) == 1
+    assert "nothing matched --row BERT in a column named Top-1" in capsys.readouterr().err
+    assert cli.main(["compare", str(FIXTURE), "--row=---", "--col", "Top-1"]) == 2
+    assert "no words or numbers" in capsys.readouterr().err

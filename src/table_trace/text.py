@@ -119,6 +119,8 @@ def plain(s: str, defs: dict[str, tuple[int, str]] | None = None) -> str:
     ('75.3±0.2', 'ResNet-50', 'Top-1 Acc. (%)')
     >>> plain(r"\ours{}$^\dagger$", {"ours": (0, r"\textsc{Ours}")}), plain(r"{\bf 81.2} \textcolor{red}{(+1.1)}"), plain("$\\uparrow$ BLEU")
     ('Ours†', '81.2 (+1.1)', '↑ BLEU')
+    >>> plain(r"\texttt{{\color{gray}Buddhists are} \textbf{divided}}")
+    'Buddhists are divided'
     >>> plain(r"BERT\_base \& T5 (\$0.5)")
     'BERT_base & T5 ($0.5)'
     """
@@ -132,6 +134,7 @@ def plain(s: str, defs: dict[str, tuple[int, str]] | None = None) -> str:
     for _ in range(4):
         s = re.sub(r"\\(?:" + DROP_ARG + r")\*?\s*(?:\[[^\]]*\])*\s*\{[^{}]*\}", "", s)
         s = re.sub(r"\\(?:" + KEEP_ARG + r")\*?\s*(?:\[[^\]]*\])*\s*(?:\{[^{}]*\}\s*){0,2}?\{([^{}]*)\}", r"\1", s)
+        s = re.sub(r"(?<![A-Za-z@\\])\{([^{}]*)\}", r"\1", s)  # a plain group inside an argument: \texttt{{\color{gray}a} b}
     # a symbol; the space after a command word is not printed (\pm 0.2 is ±0.2)
     s = re.sub(
         r"\\([A-Za-z]+)( ?)|\\([%&_#${}])",

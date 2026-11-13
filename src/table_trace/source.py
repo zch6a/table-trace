@@ -240,12 +240,18 @@ def load(source: str) -> Paper:
         return read_project(path, path.name)
     if path.is_dir():
         main = find_main(path)
-        if main is None:
-            raise SourceError(f"{source}: no .tex file with \\documentclass and \\begin{{document}}")
-        return read_project(main, path.name)
+        if main is not None:
+            return read_project(main, path.name)
+        # no main file (a folder of table snippets): every .tex file, in name order
+        files = sorted(path.rglob("*.tex"))[:2000]
+        if not files:
+            raise SourceError(f"{source}: no .tex file in this folder")
+        return Paper(path.name, [(f.relative_to(path).as_posix(), strip_dead(strip_comments(read_text(f)))) for f in files])
     aid = arxiv_id(source)
     if aid is None:
-        raise SourceError(f"{source}: not an arXiv id, a folder or a .tex file")
+        if re.search(r"[\\/]|\.tex$", source) or path.suffix:
+            raise SourceError(f"{source}: no such file or folder")
+        raise SourceError(f"{source}: not an arXiv id (like 1512.03385), a folder or a .tex file")
     with tempfile.TemporaryDirectory(prefix="table-trace-") as tmp:
         fetch(aid, Path(tmp))
         main = find_main(Path(tmp))

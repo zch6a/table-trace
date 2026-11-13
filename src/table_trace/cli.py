@@ -164,7 +164,11 @@ def _compare(args: argparse.Namespace) -> int:
         if len({f.better for f in found if f.better}) > 1:
             print("Some columns are better higher and some lower (an accuracy and an error rate): do not compare them as one.")
         print("Columns can differ in metric or setting (top-1/top-5, resolution, pre-training): read the headers before comparing.")
-    if missing:
+    if not found:
+        print(f"nothing matched --row {' / '.join(args.row)} in a column named {' / '.join(args.col)}"
+              + (f" (tables captioned {' / '.join(args.caption)})" if args.caption else "")
+              + ": try other spellings (--row may be given several times) or the metric's name in --col", file=sys.stderr)  # fmt: skip
+    elif missing:
         print(f"no match in: {', '.join(missing)}", file=sys.stderr)
     return 0 if found else 1
 

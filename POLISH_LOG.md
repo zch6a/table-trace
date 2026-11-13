@@ -41,3 +41,29 @@ Tests: 18 (doctests included), made-up LaTeX, no network (an arXiv fetch is repl
 of the command). ruff, ruff format, mypy clean.
 
 Next: polishing round 1 (more papers and table styles; the CLI's edges; a social card).
+
+### 2026-11-14 — polishing round 1
+
+**Fourteen more papers in other styles** (Transformer, GPT-3, Llama 2, Mistral, DPO, DDPM, Stable Diffusion, MAE,
+SimCLR, RoBERTa, FlashAttention, Adam, GAN, YOLO): about 13,000 more cells, read with the same check for LaTeX left in a
+cell's text (all that remained were English words in tables of sample text: “it”, “small”, “centering”). Fixed:
+- `\texttt{{\color{gray}...} \textbf{...}}` (GPT-3's prompt tables) kept the command's name: a plain brace group
+  inside an argument was never unwrapped. Now it is (a doctest).
+- Tabulars that only lay out images inside figures (GPT-3's scale plots, Stable Diffusion's samples) came out as tables
+  with no text and every row a header: a tabular with no text in any cell is now not a table (75 tables in GPT-3,
+  not 86).
+- A text-only table whose last row is followed by `\bottomrule` was all header: the rule closing the table is no
+  longer read as the line under a header.
+
+**The command's edges**, one by one: a folder with no main file (a folder of table snippets) was refused; now every
+.tex file in it is read in name order. A path that does not exist was “not an arXiv id”; now “no such file or
+folder”. `compare` with no match said only “no match in: paper”; now it says what was looked for and suggests other
+spellings. Already fine: no arguments, a missing `--col`, a paper without tables (exit 1), a binary .tex file, an
+arXiv id that does not exist (HTTP 404, said), an id that is not one, several papers at once.
+
+**The social card** (`docs/social-preview.png`, from `scripts/social-card.html`): the README's ResNet-50 comparison, each
+number with its table and line.
+
+Tests: 20 (doctests included), made-up LaTeX, no network. ruff, ruff format, mypy clean.
+
+Next: polishing round 2 (an independent review of the code; the README's claims against real runs).

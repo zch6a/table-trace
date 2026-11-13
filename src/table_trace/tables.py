@@ -340,7 +340,8 @@ def find_tables(files: list[tuple[str, str]]) -> list[Table]:
                     caption, label = plain(f.captions[ci][1], defs), f.captions[ci][2]
             t = Table(file, text.count("\n", 0, m.start()) + 1, num, label, caption)
             _fill(t, text, i, close, defs)
-            tables.append(t)
+            if any(c.text for r in t.rows for c in r):  # a tabular of images only lays out a figure: not a table
+                tables.append(t)
     return tables
 
 
@@ -379,6 +380,8 @@ def _fill(t: Table, text: str, start: int, close: int, defs: dict[str, tuple[int
         for j, down in spans.items():
             pending[j] = (cells[j].text, down)
         t.rows.append(cells)
+    if first_rule_row == len(t.rows):
+        first_rule_row = None  # the rule under the last row closes the table; it is not the line under a header
     # The header: the rows above the first full rule when it comes early (a header may hold numbers: sizes, shots);
     # otherwise the leading rows without a result.
     leading = next((k for k, r in enumerate(t.rows) if any(c.value is not None for c in r)), len(t.rows))
