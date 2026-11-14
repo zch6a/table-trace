@@ -23,3 +23,10 @@ uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.
   `--caption ImageNet` keeps only tables whose caption names the benchmark when the columns name only the metric
   ("top-1 err."). A table with the models as columns is read the other way round (`transposed` in the JSON).
 - A paper submitted as a PDF only has no source: say so rather than guess its numbers.
+
+## Are two scores comparable?
+
+`table-trace settings PAPER... --benchmark NAME` (repeat `--benchmark` for spellings) reads how each paper evaluated
+on that benchmark: shots, chain of thought, decoding, harness, metric, with file and line (`--evidence` for the
+sentences). Use it before comparing numbers from different papers; say which settings differ or are not stated, and
+quote the evidence rather than guessing a setting a paper does not state.

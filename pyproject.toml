@@ -1,6 +1,6 @@
 [project]
 name = "table-trace"
-version = "0.1.0"
+version = "0.2.0"
 description = "Every number in a paper's tables, read from its LaTeX source (arXiv or local) and traced to its cell: text, result, ± spread, bold, file and line; and what papers report for the same model on the same benchmark, side by side."
 readme = "README.md"
 license = "MIT"

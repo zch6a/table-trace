@@ -52,6 +52,29 @@ uvx --from git+https://github.com/zch6a/table-trace@v0 table-trace compare 2010.
 
 `@v0` 是最新的发布版（去掉它就用主分支）。`compare` 的 `--row` 和 `--col` 可以写多次（不同写法：`--row ResNet-50 --row R50`），`--caption` 只保留标题里提到某个词的表。模型在列、基准在行的表（例如 ViT 的表 2）会反过来读，结果里会注明。名字按其中的单词和数字依次匹配，不管空格、连字符和大小写：“ResNet-50”能找到“ResNet50”和“ResNet 50”，不会找到“ResNet-101”“ResNet-50x2”“SE-ResNet-50”或“R50x1+ViT-B/16”这样的其他模型。没有依赖；需要 Python 3.10+。读一篇论文只要零点几秒（GPT-3 的 95 个文件、75 张表用 0.13 秒），大部分时间花在从 arXiv 下载源码上。
 
+## 两个分数能比吗？`table-trace settings`
+
+两篇论文可能报告同一个模型在同一个基准上的分数，测的却不是同一件事：5-shot 对 0-shot、思维链对直接作答、贪心解码对多数投票、换了评测框架。`table-trace settings PAPERS --benchmark GSM8K` 在每篇论文提到这个基准的地方（正文句子和表格标题）读取 shot 数、是否用思维链、解码方式（贪心、temperature、top-p、beam、maj@k、pass@k、self-consistency）、评测框架（lm-evaluation-harness、OpenCompass、HELM、EvalPlus、官方脚本）和指标，每项都附文件和行号（`--evidence` 显示原句），最后列出不同之处。“not stated”（没写）本身也是结论。
+
+```console
+$ table-trace settings 2201.11903 2203.11171 2302.13971 2307.09288 --benchmark GSM8K
+2201.11903: 36 sentence(s) name GSM8K
+  shots             8-shot  [neurips_2022.tex:143]
+  chain of thought  chain-of-thought  [neurips_2022.tex:143]
+  decoding          not stated
+  ...
+2302.13971: 5 sentence(s) name GSM8K
+  shots             not stated
+  decoding          majority vote  [acl2023.tex:493]
+  ...
+Differences:
+  shots: 2201.11903: 8-shot; 2203.11171: 0-shot; 2302.13971: not stated; 2307.09288: 8-shot
+  chain of thought: chain-of-thought in 2201.11903, 2203.11171; not stated in 2302.13971, 2307.09288
+  decoding: 2201.11903: not stated; 2203.11171: self-consistency; 2302.13971: majority vote; 2307.09288: not stated
+```
+
+人工核对了四篇论文在 GSM8K 上、两篇在 MMLU 上的依据：LLaMA 和 Llama 2 在 MMLU 上都是 5-shot；Chain-of-Thought 是 8-shot 加思维链（“eight chain-of-thought exemplars”）；LLaMA 用多数投票；Llama 2 是 8-shot。Self-consistency 论文唯一读到的 shot 数是一个消融实验标题里的 zero-shot：它的主结果沿用了那八个示例，但没有在 “GSM8K” 旁边写 “8-shot”，所以要看依据。过程中修掉的错误：整张表格被当成句子（现在只读标题）、“MMLU (5 shot), BBH (3 shot)” 把整句的 shot 数都算给 MMLU（现在只看它自己的分句）、“0-shot for all tasks except MMLU (5-shot)”（取紧挨着名字的那个）、“Of 50 random examples” 被当成 50-shot，以及把 BIG-bench 列为评测框架。
+
 ## 局限
 
 - 只读 LaTeX：以 PDF 形式提交到 arXiv 的论文没有源码可读。画成图片的表格也不算表格。

@@ -81,6 +81,40 @@ hyphens or case: "ResNet-50" finds "ResNet50" and "ResNet 50", not other models 
 No dependencies; Python 3.10+. Reading a paper takes a fraction of a second (GPT-3's 95 files and 75 tables: 0.13 s);
 fetching its source from arXiv is most of the time.
 
+## Are two scores comparable? `table-trace settings`
+
+Two papers can report the same model on the same benchmark and still not measure the same thing: 5-shot against
+0-shot, chain-of-thought against direct answers, greedy decoding against majority voting, one harness against another.
+`table-trace settings PAPERS --benchmark GSM8K` reads, where each paper names the benchmark (its sentences and table
+captions), the shots, chain of thought, decoding (greedy, temperature, top-p, beams, maj@k, pass@k, self-consistency),
+the harness (lm-evaluation-harness, OpenCompass, HELM, EvalPlus, an official script) and the metric, each with its file
+and line (`--evidence` shows the sentence), then what differs. "Not stated" is a finding too.
+
+```console
+$ table-trace settings 2201.11903 2203.11171 2302.13971 2307.09288 --benchmark GSM8K
+2201.11903: 36 sentence(s) name GSM8K
+  shots             8-shot  [neurips_2022.tex:143]
+  chain of thought  chain-of-thought  [neurips_2022.tex:143]
+  decoding          not stated
+  ...
+2302.13971: 5 sentence(s) name GSM8K
+  shots             not stated
+  decoding          majority vote  [acl2023.tex:493]
+  ...
+Differences:
+  shots: 2201.11903: 8-shot; 2203.11171: 0-shot; 2302.13971: not stated; 2307.09288: 8-shot
+  chain of thought: chain-of-thought in 2201.11903, 2203.11171; not stated in 2302.13971, 2307.09288
+  decoding: 2201.11903: not stated; 2203.11171: self-consistency; 2302.13971: majority vote; 2307.09288: not stated
+```
+
+Measured by reading the evidence for four papers on GSM8K and two on MMLU: LLaMA and Llama 2 both 5-shot on MMLU;
+Chain-of-Thought 8-shot with chain of thought ("eight chain-of-thought exemplars"); LLaMA majority voting; Llama 2
+8-shot. Self-consistency's only shot count is the zero-shot of an ablation caption: its main results reuse the eight
+exemplars without saying "8-shot" near "GSM8K", which is why the evidence is shown. Mistakes fixed on the way: whole
+tables read as sentences (now only captions), "MMLU (5 shot), BBH (3 shot)" giving MMLU every count in the sentence
+(now its own clause), "0-shot for all tasks except MMLU (5-shot)" (the count next to the name), "Of 50 random examples"
+taken for 50 shots, and BIG-bench listed as a harness.
+
 ## Limits
 
 - LaTeX only: a paper submitted to arXiv as a PDF has no source to read. Tables drawn as images are not tables.

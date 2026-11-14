@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use table-trace in your research, please cite it as below."
+title: "table-trace: every number in a paper's tables, traced to its cell"
+type: software
+authors:
+  - alias: zch6a
+repository-code: "https://github.com/zch6a/table-trace"
+license: MIT
+version: "0.2.0"
+date-released: "2026-11-14"

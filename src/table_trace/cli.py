@@ -100,8 +100,17 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--col", action="append", required=True, help="the benchmark or metric, in a column header (repeatable)")
     c.add_argument("--caption", action="append", help="only tables whose caption or label names this (repeatable)")
     c.add_argument("--json", action="store_true")
+    st = sub.add_parser("settings", help="how each paper evaluated on a benchmark: shots, chain of thought, decoding, harness, metric")
+    st.add_argument("papers", nargs="+", metavar="PAPER")
+    st.add_argument(
+        "--benchmark", action="append", required=True, help="the benchmark (repeat for other spellings: --benchmark GSM8K --benchmark GSM-8K)"
+    )
+    st.add_argument("--evidence", action="store_true", help="show the sentence each setting was read from")
+    st.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     try:
+        if args.command == "settings":
+            return _settings(args)
         return _extract(args) if args.command == "extract" else _compare(args)
     except (SourceError, ValueError, OSError) as err:
         print(f"table-trace: {err}", file=sys.stderr)
@@ -149,6 +158,42 @@ def _extract(args: argparse.Namespace) -> int:
         print("table-trace: no tables found" + (f" numbered {args.table}" if args.table is not None else ""), file=sys.stderr)
         return 1
     return 0
+
+
+def _settings(args: argparse.Namespace) -> int:
+    from .settings import KINDS, differences, read
+
+    bench = re.compile("|".join(pattern(b, strict=False).pattern for b in args.benchmark), re.I)
+    found = []
+    for src in args.papers:
+        try:
+            found.append(read(load(src), bench))
+        except SourceError as err:
+            if len(args.papers) == 1:
+                raise
+            print(f"table-trace: {err}", file=sys.stderr)
+    if args.json:
+        print(json.dumps([{"paper": s.paper, "mentions": s.mentions, "settings": {k: [asdict(e) for e in s.found.get(k, [])] for k in KINDS}}
+                          for s in found], indent=1, ensure_ascii=False))  # fmt: skip
+        return 0 if found else 2
+    names = {"shots": "shots", "cot": "chain of thought", "decoding": "decoding", "harness": "harness", "metric": "metric"}
+    for s in found:
+        print(f"{s.paper}: {s.mentions} sentence(s) name {' / '.join(args.benchmark)}")
+        for k in KINDS:
+            ev = s.found.get(k, [])
+            vals = list(dict.fromkeys(e.value for e in ev))
+            where = f"  [{ev[0].file}:{ev[0].line}]" if ev else ""
+            print(f"  {names[k]:17} {', '.join(vals) if vals else 'not stated'}{where}")
+            if args.evidence:
+                for e in ev[:3]:
+                    print(f"      {e.file}:{e.line}  {e.sentence[:160]}")
+        print()
+    diff = differences(found)
+    if len(found) > 1:
+        print("Differences:" if diff else "No difference in what the papers state (which does not mean they evaluated the same way).")
+        for d in diff:
+            print(f"  {d}")
+    return 0 if found else 2
 
 
 def _compare(args: argparse.Namespace) -> int:

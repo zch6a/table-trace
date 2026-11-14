@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 2026-11-14
+
+- **`table-trace settings PAPERS --benchmark NAME`**: how each paper evaluated on a benchmark, read where it names it
+  (sentences and table captions): shots, chain of thought, decoding, harness and metric, each with its file and line,
+  and what differs between the papers. A setting is taken from the benchmark's own clause, or from its sentence when
+  the sentence states one value only.
+- A CITATION.cff.
+
 ## 0.1.0 — 2026-11-14
 
 First release: every number in a paper's tables, read from its LaTeX source and traced to the cell it is in; and what

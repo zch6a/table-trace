@@ -185,3 +185,19 @@ release from the CHANGELOG section and points v0 at it.
 
 Both READMEs now end (before the licence) with a short section pointing to research-kit, the toolkit's front door: all
 thirteen tools in the order of the work, and one Claude Code plugin marketplace for their skills. Documentation only.
+
+### 2026-11-14 — 0.2.0: table-trace settings
+
+From research-kit's list: "know whether a benchmark score in a paper is comparable to yours: same harness, prompts,
+shots, decoding" (each harness gives different numbers, and papers rarely state their settings).
+
+Tried on GSM8K (Chain-of-Thought, Self-Consistency, LLaMA, Llama 2, Tree of Thoughts) and MMLU (LLaMA, Llama 2),
+reading the evidence each time. First runs: Llama 2's MMLU sentences sat among other benchmarks and the neighbouring
+sentences gave it 3-shot, 1-shot, 8-shot and 0-shot (now the sentence itself only); whole tables were read as
+sentences when their caption named the benchmark (now captions only); "MMLU (5 shot), BBH (3 shot)" (now the
+benchmark's own clause); "0-shot results for all tasks except MMLU (5-shot)" (the count nearest the name); "eight
+chain-of-thought exemplars" missed (number words, words in between); "Of 50 random examples" read as 50-shot
+("examples" alone no longer counts); BIG-bench is a benchmark, not a harness. Left as it is, and said in the README:
+Self-Consistency's main 8-shot setting is never written next to "GSM8K", so only an ablation's zero-shot is found.
+
+3 tests on made-up papers.
